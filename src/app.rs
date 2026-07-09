@@ -907,7 +907,10 @@ fn open_path(path: &std::path::Path) -> std::io::Result<()> {
     {
         // `start` opens files with the default app; for folders it opens Explorer.
         std::process::Command::new("cmd")
-            .args(["/C", "start", "", path.as_os_str()])
+            .arg("/C")
+            .arg("start")
+            .arg("")
+            .arg(path)
             .spawn()?;
         return Ok(());
     }
