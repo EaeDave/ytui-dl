@@ -188,6 +188,84 @@ async fn run_self_update_inner(
     })
 }
 
+/// CLI entry: `ytui-dl --uninstall`
+///
+/// Removes the installed binary (not config or downloads).
+pub fn run_uninstall() -> Result<()> {
+    let mut removed = Vec::new();
+    let mut missing = Vec::new();
+    let mut errors = Vec::new();
+
+    for path in uninstall_candidates() {
+        if !path.exists() {
+            missing.push(path);
+            continue;
+        }
+        match std::fs::remove_file(&path) {
+            Ok(()) => {
+                println!("==> removed {}", path.display());
+                removed.push(path);
+            }
+            Err(e) => {
+                // On Linux, deleting the running binary usually works (unlink).
+                // Permission errors need sudo for system installs.
+                eprintln!("!!  could not remove {}: {e}", path.display());
+                errors.push((path, e));
+            }
+        }
+    }
+
+    if removed.is_empty() && errors.is_empty() {
+        println!("==> ytui-dl binary not found in common install locations");
+        println!("    checked: ~/.local/bin/ytui-dl, current executable, PATH");
+        return Ok(());
+    }
+
+    if !removed.is_empty() {
+        println!("==> uninstalled binary ({} file(s))", removed.len());
+        println!("==> config (~/.config/ytui-dl) and downloads were not removed");
+    }
+
+    if !errors.is_empty() {
+        bail!(
+            "failed to remove {} path(s); try with sudo if installed system-wide",
+            errors.len()
+        );
+    }
+
+    let _ = missing;
+    Ok(())
+}
+
+fn uninstall_candidates() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    if let Ok(exe) = env::current_exe() {
+        let exe = exe.canonicalize().unwrap_or(exe);
+        let in_target = exe.components().any(|c| c.as_os_str() == "target");
+        if !in_target {
+            paths.push(exe);
+        }
+    }
+
+    let local = default_user_bin().join(BIN_NAME);
+    if !paths.iter().any(|p| p == &local) {
+        paths.push(local);
+    }
+
+    if let Ok(from_path) = which::which(BIN_NAME) {
+        let from_path = from_path.canonicalize().unwrap_or(from_path);
+        if !paths.iter().any(|p| p == &from_path) {
+            let in_target = from_path.components().any(|c| c.as_os_str() == "target");
+            if !in_target {
+                paths.push(from_path);
+            }
+        }
+    }
+
+    paths
+}
+
 /// Re-exec this process with the (possibly updated) binary. Linux/unix.
 pub fn reexec_self() -> Result<()> {
     #[cfg(unix)]

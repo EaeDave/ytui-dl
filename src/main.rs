@@ -36,11 +36,11 @@ Usage:
   ytui-dl --update     Download and install the latest GitHub release
   ytui-dl --update --force
                        Reinstall even if already on the latest version
+  ytui-dl --uninstall  Remove the installed binary (keeps config/downloads)
   ytui-dl --help       Print this help
 
-Install / uninstall (script):
+First-time install (script):
   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
-  curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --uninstall
 "
     );
 }
@@ -61,6 +61,13 @@ async fn main() -> Result<()> {
             "--update" | "update" => {
                 let force = args.iter().any(|a| a == "--force" || a == "-f");
                 if let Err(e) = updater::run_self_update(force).await {
+                    eprintln!("error: {e:#}");
+                    std::process::exit(1);
+                }
+                return Ok(());
+            }
+            "--uninstall" | "uninstall" => {
+                if let Err(e) = updater::run_uninstall() {
                     eprintln!("error: {e:#}");
                     std::process::exit(1);
                 }

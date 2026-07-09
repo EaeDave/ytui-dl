@@ -46,15 +46,12 @@ ytui-dl
 # Preferred after first install
 ytui-dl --update
 ytui-dl --update --force   # reinstall same version
+ytui-dl --uninstall        # remove binary (keeps config & downloads)
 
 # Or via install script
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --force
-
-# Installed vs remote
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --check
-
-# Remove binary
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --uninstall
 
 # System-wide (may prompt for sudo)
