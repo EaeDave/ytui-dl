@@ -41,7 +41,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         )),
         Line::from("• Template usa placeholders do yt-dlp: %(title)s %(id)s %(ext)s …"),
         Line::from("• Os defaults de modo/qualidade atuais também são salvos ao pressionar Enter"),
-        Line::from("• Arquivo: ~/.config/ytui/config.toml"),
+        Line::from("• Arquivo: ~/.config/ytui-dl/config.toml"),
         Line::from(""),
         Line::from(Span::styled(
             "Enter = salvar   Esc = cancelar   Tab = trocar campo",

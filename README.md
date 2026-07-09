@@ -1,4 +1,4 @@
-# ytui
+# ytui-dl
 
 **YouTube no terminal.** TUI em Rust para baixar vídeos e áudios do YouTube.
 
@@ -30,7 +30,7 @@ cargo install --path .
 cargo run --release
 ```
 
-Binário: `ytui`
+Binário: `ytui-dl`
 
 ## Uso
 
@@ -57,17 +57,17 @@ Binário: `ytui`
 
 ## Configuração
 
-Arquivo: `~/.config/ytui/config.toml`
+Arquivo: `~/.config/ytui-dl/config.toml`
 
 ```toml
-output_dir = "/home/voce/Downloads/ytui"
+output_dir = "/home/voce/Downloads/ytui-dl"
 output_template = "%(title)s [%(id)s].%(ext)s"
 default_mode = "video"
 default_quality = "best"
 default_audio_format = "m4a"
 ```
 
-Padrão de saída: `~/Downloads/ytui/` (ou home se Downloads não existir).
+Padrão de saída: `~/Downloads/ytui-dl/` (ou home se Downloads não existir).
 
 ## Stack
 

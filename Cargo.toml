@@ -1,12 +1,12 @@
 [package]
-name = "ytui"
+name = "ytui-dl"
 version = "0.1.0"
 edition = "2021"
 description = "YouTube TUI downloader powered by yt-dlp"
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/EaeDave/ytui"
-homepage = "https://github.com/EaeDave/ytui"
+repository = "https://github.com/EaeDave/ytui-dl"
+homepage = "https://github.com/EaeDave/ytui-dl"
 keywords = ["youtube", "download", "tui", "yt-dlp", "terminal"]
 categories = ["command-line-utilities", "multimedia"]
 

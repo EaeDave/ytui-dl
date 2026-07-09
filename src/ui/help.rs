@@ -40,7 +40,7 @@ pub fn draw(frame: &mut Frame, area: Rect) {
         key("c", "Limpar itens finalizados"),
         Line::from(""),
         Line::from(Span::styled(
-            "ytui  ·  powered by yt-dlp  ·  Ratatui",
+            "ytui-dl  ·  powered by yt-dlp  ·  Ratatui",
             Style::default().fg(Color::DarkGray),
         )),
     ];
