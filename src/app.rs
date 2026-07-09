@@ -44,6 +44,14 @@ pub struct App {
     tick_count: u64,
     /// Newer release version available (no leading `v`), if any.
     pub update_available: Option<String>,
+    /// Waiting for Enter/Esc on the update confirm modal.
+    pub update_confirm: bool,
+    /// Download/install in progress.
+    pub update_busy: bool,
+    /// Install finished; waiting for R to restart.
+    pub update_ready_restart: bool,
+    /// After clean TUI exit, re-exec the binary.
+    pub should_restart: bool,
 }
 
 impl App {
@@ -105,6 +113,10 @@ impl App {
             action_tx: None,
             tick_count: 0,
             update_available: None,
+            update_confirm: false,
+            update_busy: false,
+            update_ready_restart: false,
+            should_restart: false,
         }
     }
 
@@ -209,6 +221,22 @@ impl App {
                     self.status_message = self.lang().msg_update_available(&version);
                 }
             }
+            Action::UpdateProgress { message } => {
+                self.status_message = format!("↑ {message}");
+            }
+            Action::UpdateSucceeded { version } => {
+                self.update_busy = false;
+                self.update_confirm = false;
+                self.update_ready_restart = true;
+                self.update_available = None;
+                self.status_message = self.lang().msg_update_done(&version);
+            }
+            Action::UpdateFailed { error } => {
+                self.update_busy = false;
+                self.update_confirm = false;
+                self.update_ready_restart = false;
+                self.status_message = self.lang().msg_update_failed(&error);
+            }
             Action::Status(msg) => {
                 self.status_message = msg;
             }
@@ -260,6 +288,47 @@ impl App {
             return Ok(());
         }
 
+        // Update modal / busy / restart prompts take over input.
+        if self.update_busy {
+            if matches!(key.code, KeyCode::Char('q') | KeyCode::Char('Q')) {
+                self.status_message = self.t().status_update_wait.into();
+            }
+            return Ok(());
+        }
+
+        if self.update_ready_restart {
+            match key.code {
+                KeyCode::Char('r') | KeyCode::Char('R') | KeyCode::Enter => {
+                    self.should_restart = true;
+                    self.should_quit = true;
+                }
+                KeyCode::Char('q') | KeyCode::Char('Q') | KeyCode::Esc => {
+                    self.update_ready_restart = false;
+                    self.status_message = self.t().status_paste_url.into();
+                }
+                _ => {}
+            }
+            return Ok(());
+        }
+
+        if self.update_confirm {
+            match key.code {
+                KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    self.begin_update_install();
+                }
+                KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {
+                    self.update_confirm = false;
+                    if let Some(ver) = &self.update_available {
+                        self.status_message = self.lang().msg_update_available(ver);
+                    } else {
+                        self.status_message = self.t().status_paste_url.into();
+                    }
+                }
+                _ => {}
+            }
+            return Ok(());
+        }
+
         if self.screen == Screen::Help {
             if matches!(key.code, KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q')) {
                 self.screen = self.previous_screen;
@@ -301,7 +370,7 @@ impl App {
                 self.open_output_dir();
             }
             KeyCode::Char('u') if !self.is_text_focus() => {
-                self.show_update_help();
+                self.prompt_update();
             }
             KeyCode::Esc => self.on_esc(),
             _ => match self.screen {
@@ -731,13 +800,31 @@ impl App {
         FRAMES[(self.tick_count as usize / 2) % FRAMES.len()]
     }
 
-    fn show_update_help(&mut self) {
-        let cmd = crate::updater::update_hint_command();
+    fn prompt_update(&mut self) {
+        if self.update_busy {
+            return;
+        }
+        if cfg!(not(target_os = "linux")) {
+            self.status_message = self.t().status_update_linux_only.into();
+            return;
+        }
         if let Some(ver) = &self.update_available {
-            self.status_message = self.lang().msg_update_howto(ver, cmd);
+            let ver = ver.clone();
+            self.update_confirm = true;
+            self.status_message = self.lang().msg_update_confirm(&ver);
         } else {
             self.status_message = self.t().status_up_to_date.into();
         }
+    }
+
+    fn begin_update_install(&mut self) {
+        let Some(tx) = self.action_tx.clone() else {
+            return;
+        };
+        self.update_confirm = false;
+        self.update_busy = true;
+        self.status_message = self.t().status_update_starting.into();
+        crate::updater::spawn_tui_update(tx);
     }
 }
 

@@ -110,7 +110,7 @@ language = "en"    # or "pt-BR"
 | `?` | Help |
 | `q` | Quit |
 
-On startup, ytui-dl checks GitHub Releases in the background. If a newer version is available, a yellow badge appears in the header; press **`u`** for the command, then quit and run **`ytui-dl --update`**.
+On startup (Linux), ytui-dl checks GitHub Releases in the background. If a newer version is available, a yellow badge appears in the header. Press **`u`** → confirm with **Enter** → install runs in the background (SHA256 + atomic replace) → **R** / **Enter** restarts into the new build. You can still use **`ytui-dl --update`** from the shell.
 
 ## Configuration
 

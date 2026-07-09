@@ -142,9 +142,22 @@ pub struct Strings {
     pub help_update: &'static str,
     pub help_footer: &'static str,
 
+    // Update modal
+    pub update_modal_title: &'static str,
+    pub update_modal_confirm_keys: &'static str,
+    pub update_modal_note: &'static str,
+    pub update_modal_working: &'static str,
+    pub update_modal_working_hint: &'static str,
+    pub update_modal_done: &'static str,
+    pub update_modal_restart_hint: &'static str,
+    pub update_modal_quit_hint: &'static str,
+
     // Status / messages (static parts)
     pub status_paste_url: &'static str,
     pub status_up_to_date: &'static str,
+    pub status_update_starting: &'static str,
+    pub status_update_wait: &'static str,
+    pub status_update_linux_only: &'static str,
     pub status_ffmpeg_missing: &'static str,
     pub status_download_started: &'static str,
     pub status_download_cancelled: &'static str,
@@ -261,11 +274,23 @@ pub static EN: Strings = Strings {
     help_queue_section: "Queue",
     help_jk: "Navigate items",
     help_clear: "Clear finished items",
-    help_update: "Show update info / install command",
+    help_update: "Update to latest release (confirm, then install)",
     help_footer: "ytui-dl  ·  powered by yt-dlp  ·  Ratatui",
+
+    update_modal_title: "Update available",
+    update_modal_confirm_keys: "  Enter / y = install now    Esc / n = cancel  ",
+    update_modal_note: "Downloads from GitHub Releases, verifies SHA256, replaces the binary.",
+    update_modal_working: "Updating…",
+    update_modal_working_hint: "Please wait — do not close the terminal.",
+    update_modal_done: "Update installed",
+    update_modal_restart_hint: "  Enter / R = restart ytui-dl now  ",
+    update_modal_quit_hint: "Esc / q = stay on this session (restart later)",
 
     status_paste_url: "Paste a YouTube URL and press Enter",
     status_up_to_date: "You are on the latest release",
+    status_update_starting: "Starting update…",
+    status_update_wait: "Update in progress — please wait…",
+    status_update_linux_only: "In-app update is Linux-only for now; use the install script on other OSes",
     status_ffmpeg_missing: "ffmpeg not found — video/audio merge and conversion may fail",
     status_download_started: "Download started…",
     status_download_cancelled: "Download cancelled",
@@ -382,11 +407,23 @@ pub static PT_BR: Strings = Strings {
     help_queue_section: "Fila",
     help_jk: "Navegar itens",
     help_clear: "Limpar itens finalizados",
-    help_update: "Mostrar info de update / comando de instalação",
+    help_update: "Atualizar para a última release (confirma e instala)",
     help_footer: "ytui-dl  ·  powered by yt-dlp  ·  Ratatui",
+
+    update_modal_title: "Atualização disponível",
+    update_modal_confirm_keys: "  Enter / y = instalar agora    Esc / n = cancelar  ",
+    update_modal_note: "Baixa do GitHub Releases, verifica SHA256 e substitui o binário.",
+    update_modal_working: "Atualizando…",
+    update_modal_working_hint: "Aguarde — não feche o terminal.",
+    update_modal_done: "Atualização instalada",
+    update_modal_restart_hint: "  Enter / R = reiniciar o ytui-dl agora  ",
+    update_modal_quit_hint: "Esc / q = continuar nesta sessão (reinicie depois)",
 
     status_paste_url: "Cole uma URL do YouTube e pressione Enter",
     status_up_to_date: "Você já está na última release",
+    status_update_starting: "Iniciando atualização…",
+    status_update_wait: "Atualização em andamento — aguarde…",
+    status_update_linux_only: "Update na TUI é só Linux por enquanto; use o script de install em outros SOs",
     status_ffmpeg_missing: "ffmpeg não encontrado — merge de vídeo/áudio e conversão podem falhar",
     status_download_started: "Download iniciado…",
     status_download_cancelled: "Download cancelado",
@@ -481,18 +518,39 @@ impl Language {
     pub fn msg_update_available(self, version: &str) -> String {
         match self {
             Self::En => format!(
-                "Update available: v{version}  ·  press u  ·  or quit and run: ytui-dl --update"
+                "Update available: v{version}  ·  press u to install"
             ),
             Self::PtBr => format!(
-                "Atualização disponível: v{version}  ·  pressione u  ·  ou saia e rode: ytui-dl --update"
+                "Atualização disponível: v{version}  ·  pressione u para instalar"
             ),
         }
     }
 
-    pub fn msg_update_howto(self, version: &str, cmd: &str) -> String {
+    pub fn msg_update_confirm(self, version: &str) -> String {
         match self {
-            Self::En => format!("Update to v{version}: quit (q) then run: {cmd}"),
-            Self::PtBr => format!("Atualizar para v{version}: saia (q) e rode: {cmd}"),
+            Self::En => format!("Install v{version} now? Enter = yes, Esc = cancel"),
+            Self::PtBr => format!("Instalar v{version} agora? Enter = sim, Esc = cancelar"),
+        }
+    }
+
+    pub fn msg_update_confirm_body(self, version: &str) -> String {
+        match self {
+            Self::En => format!("A newer version is available: v{version}"),
+            Self::PtBr => format!("Há uma versão mais nova: v{version}"),
+        }
+    }
+
+    pub fn msg_update_done(self, version: &str) -> String {
+        match self {
+            Self::En => format!("Installed v{version} successfully"),
+            Self::PtBr => format!("v{version} instalada com sucesso"),
+        }
+    }
+
+    pub fn msg_update_failed(self, error: &str) -> String {
+        match self {
+            Self::En => format!("Update failed: {error}"),
+            Self::PtBr => format!("Falha na atualização: {error}"),
         }
     }
 }

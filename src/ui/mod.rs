@@ -3,6 +3,7 @@ mod home;
 mod preview;
 mod queue;
 mod settings;
+mod update_modal;
 pub mod widgets;
 
 use ratatui::Frame;
@@ -32,4 +33,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     if app.screen != Screen::Help {
         draw_status_bar(frame, chunks[2], app);
     }
+
+    // Update confirm / progress / restart overlays (Linux self-update).
+    update_modal::draw(frame, area, app);
 }

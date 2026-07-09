@@ -110,7 +110,7 @@ language = "pt-BR"    # ou "en"
 | `?` | Ajuda |
 | `q` | Sair |
 
-Na abertura, o ytui-dl consulta as GitHub Releases em background. Se houver versão mais nova, um badge amarelo aparece no header; pressione **`u`**, saia e rode **`ytui-dl --update`**.
+Na abertura (Linux), o ytui-dl consulta as GitHub Releases em background. Se houver versão mais nova, um badge amarelo aparece no header. Pressione **`u`** → confirme com **Enter** → a instalação roda em background (SHA256 + replace atômico) → **R** / **Enter** reinicia na build nova. Também existe **`ytui-dl --update`** no shell.
 
 ## Configuração
 

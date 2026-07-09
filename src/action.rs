@@ -39,6 +39,15 @@ pub enum Action {
     UpdateAvailable {
         version: String,
     },
+    UpdateProgress {
+        message: String,
+    },
+    UpdateSucceeded {
+        version: String,
+    },
+    UpdateFailed {
+        error: String,
+    },
 
     Status(String),
 }
