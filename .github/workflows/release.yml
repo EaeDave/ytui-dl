@@ -43,6 +43,8 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Build release
+        # Windows CRT is linked statically via .cargo/config.toml
+        # (target-feature=+crt-static) so the exe does not need VC++ Redistributable.
         run: cargo build --release --locked --target ${{ matrix.target }}
 
       - name: Package binary (Unix)

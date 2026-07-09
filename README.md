@@ -45,7 +45,6 @@ curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | b
 Installs to **`%LOCALAPPDATA%\ytui-dl\bin\ytui-dl.exe`**, adds that folder to your user `PATH`, and can install **yt-dlp / ffmpeg** via winget (asks Y/n):
 
 ```powershell
-```powershell
 irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 ```
 
@@ -58,6 +57,14 @@ Then **open a new Windows Terminal** (or run the full path once):
 The installer updates your user `PATH`; existing shells may not see `ytui-dl` until you open a new one.
 
 Use [Windows Terminal](https://aka.ms/terminal) for the best TUI experience.
+
+If `ytui-dl --version` prints nothing and `$LASTEXITCODE` is `-1073741515`, the process is dying with **STATUS_DLL_NOT_FOUND** (missing MSVC runtime). From **v0.4.2** the Windows release is linked with a static CRT so this should not happen. On older builds:
+
+```powershell
+winget install -e --id Microsoft.VCRedist.2015+.x64
+```
+
+For any silent failure: `ytui-dl --doctor` and check `%LOCALAPPDATA%\ytui-dl\last-run.log`.
 
 #### After install
 

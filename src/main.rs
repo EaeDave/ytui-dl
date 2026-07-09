@@ -1,6 +1,7 @@
 mod action;
 mod app;
 mod config;
+mod diag;
 mod downloader;
 mod error;
 mod event;
@@ -35,6 +36,7 @@ ytui-dl {VERSION} — YouTube TUI downloader
 Usage:
   ytui-dl              Start the TUI
   ytui-dl --version    Print version
+  ytui-dl --doctor     Self-check (TTY, raw mode, PATH tools) + write last-run.log
   ytui-dl --update     Download and install the latest GitHub release
   ytui-dl --update --force
                        Reinstall even if already on the latest version
@@ -44,37 +46,53 @@ Usage:
 First-time install:
   Linux:   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
   Windows: irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
+
+If the TUI opens and closes with no message, run:
+  ytui-dl --doctor
+  type %LOCALAPPDATA%\\ytui-dl\\last-run.log     (Windows)
+  cat ~/.local/share/ytui-dl/last-run.log       (Linux)
 "
     );
 }
 
 #[tokio::main]
 async fn main() {
+    // Catch panics that would otherwise vanish on some Windows hosts.
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        diag::breadcrumb(&format!("PANIC: {info}"));
+        eprintln!("ytui-dl panic: {info}");
+        let _ = io::stderr().flush();
+        default_hook(info);
+    }));
+
     if let Err(e) = run().await {
+        diag::breadcrumb(&format!("fatal error: {e:#}"));
         // Always surface errors — some Windows hosts swallow panics poorly.
         eprintln!("ytui-dl error: {e:#}");
+        eprintln!("(details: {})", diag::log_path().display());
         let _ = io::stderr().flush();
-        // Keep console visible briefly when double-started; no-op in normal terminals.
-        #[cfg(windows)]
-        {
-            if std::env::var_os("YTUI_NO_PAUSE").is_none() && !io::stdin().is_terminal() {
-                // non-interactive
-            }
-        }
         std::process::exit(1);
     }
 }
 
 async fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    diag::begin_run(&args);
+
     if let Some(arg) = args.first().map(|s| s.as_str()) {
         match arg {
             "-V" | "--version" | "version" => {
                 print_version();
+                diag::breadcrumb("version ok");
                 return Ok(());
             }
             "-h" | "--help" | "help" => {
                 print_cli_help();
+                return Ok(());
+            }
+            "--doctor" | "doctor" => {
+                diag::run_doctor()?;
                 return Ok(());
             }
             "--update" | "update" => {
@@ -95,36 +113,50 @@ async fn run() -> Result<()> {
     }
 
     // Interactive TUI requires a real terminal (not a pipe / background job).
-    if !io::stdout().is_terminal() {
+    let stdout_tty = io::stdout().is_terminal();
+    let stdin_tty = io::stdin().is_terminal();
+    diag::breadcrumb(&format!(
+        "tty check stdin={stdin_tty} stdout={stdout_tty}"
+    ));
+    if !stdout_tty {
         bail!(
             "stdout is not an interactive terminal.\n\
              Open Windows Terminal (or conhost) and run: ytui-dl\n\
-             Or check the binary with: ytui-dl --version"
+             Or check the binary with: ytui-dl --version\n\
+             Or run diagnostics: ytui-dl --doctor"
         );
     }
 
     color_eyre::install().wrap_err("install error handler")?;
+    diag::breadcrumb("color_eyre ok");
 
     let config = Config::load();
+    diag::breadcrumb("config loaded");
     let mut app = App::new(config);
     let (action_tx, mut action_rx) = mpsc::unbounded_channel::<Action>();
     app.set_action_tx(action_tx.clone());
 
     // Background: notify if a newer GitHub release exists (never blocks UI).
     updater::spawn_check(action_tx.clone());
+    diag::breadcrumb("update check spawned");
 
     let mut tui = Tui::new().wrap_err("init TUI")?;
+    diag::breadcrumb("Tui::new ok");
     tui.enter().wrap_err(
-        "enter TUI mode — on Windows, prefer Windows Terminal over legacy console",
+        "enter TUI mode — on Windows, prefer Windows Terminal over legacy console.\n\
+         Run: ytui-dl --doctor",
     )?;
+    diag::breadcrumb("tui.enter ok");
 
     // Keep the event handler alive for the whole session (do not prefix with `_` alone in a way that drops).
     let _event_handler = EventHandler::new(action_tx.clone(), 4.0, 30.0);
+    diag::breadcrumb("EventHandler started");
 
     // Initial render
     tui.terminal()
         .draw(|frame| ui::draw(frame, &app))
         .wrap_err("initial draw")?;
+    diag::breadcrumb("initial draw ok — entering loop");
 
     // Keep sender alive so the channel never closes while the UI runs.
     let _keep_tx = action_tx;
@@ -135,9 +167,15 @@ async fn run() -> Result<()> {
             bail!("event channel closed unexpectedly");
         };
 
+        let is_quit_probe = matches!(&action, Action::Key(_));
         app.update(action).wrap_err("app update")?;
 
         if app.should_quit {
+            if is_quit_probe {
+                diag::breadcrumb("quit requested via key");
+            } else {
+                diag::breadcrumb("quit requested");
+            }
             break;
         }
 
@@ -149,8 +187,10 @@ async fn run() -> Result<()> {
     let should_restart = app.should_restart;
     let restart_path = app.restart_path.clone();
     tui.exit().wrap_err("leave TUI")?;
+    diag::breadcrumb("tui.exit ok");
 
     if should_restart {
+        diag::breadcrumb("reexec restart");
         if let Err(e) = updater::reexec_self(restart_path) {
             eprintln!("error: could not restart: {e:#}");
             eprintln!("launch manually: ytui-dl");
@@ -158,5 +198,6 @@ async fn run() -> Result<()> {
         }
     }
 
+    diag::breadcrumb("clean exit");
     Ok(())
 }

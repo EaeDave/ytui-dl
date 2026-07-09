@@ -57,6 +57,14 @@ O instalador atualiza o PATH do usuário; terminais já abertos podem não achar
 
 Use o [Windows Terminal](https://aka.ms/terminal).
 
+Se `ytui-dl --version` não imprime nada e `$LASTEXITCODE` é `-1073741515`, o Windows está matando o processo com **STATUS_DLL_NOT_FOUND** (runtime MSVC ausente). A partir da **v0.4.2** o binário Windows não depende mais disso. Em builds antigas:
+
+```powershell
+winget install -e --id Microsoft.VCRedist.2015+.x64
+```
+
+Se continuar mudo: `ytui-dl --doctor` e confira `%LOCALAPPDATA%\ytui-dl\last-run.log`.
+
 #### Depois de instalar
 
 ```bash

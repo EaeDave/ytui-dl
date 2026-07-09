@@ -1,0 +1,5 @@
+# Ship a self-contained Windows exe that does not depend on the user having
+# the MSVC runtime (VCRUNTIME140.dll, etc.). Without this, the process dies
+# with STATUS_DLL_NOT_FOUND (0xC0000135 / exit -1073741515) and zero output.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

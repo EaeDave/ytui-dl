@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use color_eyre::eyre::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -56,6 +57,8 @@ pub struct App {
     pub should_restart: bool,
     /// Preferred binary path for restart (avoids Linux `(deleted)` current_exe).
     pub restart_path: Option<PathBuf>,
+    /// When the TUI session started — used to ignore phantom quit keys on Windows.
+    started_at: Instant,
 }
 
 impl App {
@@ -118,6 +121,7 @@ impl App {
             cancel_tx: None,
             action_tx: None,
             tick_count: 0,
+            started_at: Instant::now(),
             update_available: None,
             update_confirm: false,
             update_busy: false,
@@ -308,13 +312,30 @@ impl App {
     }
 
     fn on_key(&mut self, key: KeyEvent) -> Result<()> {
+        // Ignore quit hotkeys for a short window after startup. On Windows, leftover
+        // console input (or synthetic key events) can otherwise make the TUI exit
+        // before the first frame is visible — looks like "nothing happened".
+        let in_startup_grace = self.started_at.elapsed() < Duration::from_millis(500);
+        let is_quit_key = matches!(
+            key.code,
+            KeyCode::Char('q') | KeyCode::Char('Q')
+        ) || (key.modifiers.contains(KeyModifiers::CONTROL)
+            && key.code == KeyCode::Char('c'));
+
         // Global keys
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+            if in_startup_grace {
+                return Ok(());
+            }
             if self.has_active_download() && !self.should_quit {
                 self.status_message = self.t().status_ctrl_c_hint.into();
             }
             self.cancel_active();
             self.should_quit = true;
+            return Ok(());
+        }
+
+        if in_startup_grace && is_quit_key {
             return Ok(());
         }
 

@@ -294,8 +294,30 @@ try {
 
     Write-Info "installed: $InstallPath"
     try {
-        $v = & $InstallPath --version
-        Write-Info "$v"
+        $v = & $InstallPath --version 2>&1 | Out-String
+        $v = $v.Trim()
+        if ($LASTEXITCODE -eq -1073741515 -or $LASTEXITCODE -eq 0xC0000135) {
+            # STATUS_DLL_NOT_FOUND — classic missing VC++ runtime on dynamic MSVC builds.
+            Write-Warn "binary failed with STATUS_DLL_NOT_FOUND (missing Visual C++ runtime DLL)"
+            Write-Warn "installing Microsoft Visual C++ Redistributable via winget…"
+            if (Test-Cmd "winget") {
+                try {
+                    winget install -e --id Microsoft.VCRedist.2015+.x64 `
+                        --accept-package-agreements --accept-source-agreements
+                } catch {
+                    Write-Warn "winget VC++ install failed: $($_.Exception.Message)"
+                }
+                $v = & $InstallPath --version 2>&1 | Out-String
+                $v = $v.Trim()
+            } else {
+                Write-Warn "install VC++ Redistributable from:"
+                Write-Warn "  https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist"
+            }
+        }
+        if ($v) { Write-Info $v }
+        elseif ($LASTEXITCODE -ne 0) {
+            Write-Warn "could not run --version (exit $LASTEXITCODE)"
+        }
     } catch {
         Write-Warn "could not run --version: $($_.Exception.Message)"
     }
@@ -309,12 +331,16 @@ try {
     Write-Info "done!"
     Write-Host "  Full path:  & `"$InstallPath`"" -ForegroundColor White
     Write-Host "  Or reopen Windows Terminal and run:  ytui-dl" -ForegroundColor White
+    Write-Host "  If nothing appears:  ytui-dl --doctor" -ForegroundColor Yellow
+    Write-Host "  Log file:  $env:LOCALAPPDATA\ytui-dl\last-run.log" -ForegroundColor DarkGray
     Write-Host "================================================" -ForegroundColor Green
     Write-Host ""
     # Try invoking immediately in this session
     try {
         Write-Info "smoke test in this session:"
         & $InstallPath --version
+        Write-Info "doctor (TTY self-check):"
+        & $InstallPath --doctor
     } catch {
         Write-Warn "smoke test failed: $($_.Exception.Message)"
     }

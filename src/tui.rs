@@ -27,13 +27,17 @@ impl Tui {
     }
 
     pub fn enter(&mut self) -> Result<()> {
+        crate::diag::breadcrumb("enable_raw_mode…");
         enable_raw_mode().wrap_err(
             "enable raw mode (on Windows, use Windows Terminal; legacy conhost can fail)",
         )?;
+        crate::diag::breadcrumb("enable_raw_mode ok");
 
+        crate::diag::breadcrumb("EnterAlternateScreen…");
         io::stdout()
             .execute(EnterAlternateScreen)
             .wrap_err("enter alternate screen")?;
+        crate::diag::breadcrumb("EnterAlternateScreen ok");
 
         // Optional features — must not abort startup on older Windows consoles.
         let _ = io::stdout().execute(EnableBracketedPaste);
@@ -42,6 +46,7 @@ impl Tui {
         self.terminal.clear().wrap_err("clear terminal")?;
         let _ = self.terminal.hide_cursor();
         self.entered = true;
+        crate::diag::breadcrumb("tui entered");
         Ok(())
     }
 
