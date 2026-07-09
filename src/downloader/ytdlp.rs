@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
 use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -103,12 +105,20 @@ pub struct DownloadRequest {
     pub output_template: PathBuf,
 }
 
+/// Tracks the best-known output file path from yt-dlp stdout/stderr.
+pub type PathTracker = Arc<Mutex<Option<PathBuf>>>;
+
+pub fn new_path_tracker() -> PathTracker {
+    Arc::new(Mutex::new(None))
+}
+
 /// Spawn yt-dlp and stream progress events into `tx`.
-/// Returns the child process so the caller can cancel it.
+/// Returns the child process and a path tracker filled as yt-dlp reports file paths.
 pub async fn start_download(
     tools: &Tools,
     req: DownloadRequest,
     tx: mpsc::UnboundedSender<Action>,
+    last_path: PathTracker,
 ) -> Result<Child> {
     // Ensure parent directory exists
     if let Some(parent) = req.output_template.parent() {
@@ -126,6 +136,11 @@ pub async fn start_download(
         "--progress".into(),
         "--progress-template".into(),
         PROGRESS_TEMPLATE.into(),
+        // Emit final file path after download/move for auto-open.
+        "--print".into(),
+        "after_move:filepath".into(),
+        "--print".into(),
+        "after_video:filepath".into(),
         "-o".into(),
         out_tmpl.into(),
         "--no-mtime".into(),
@@ -176,11 +191,16 @@ pub async fn start_download(
 
     if let Some(out) = stdout {
         let tx_out = tx.clone();
+        let path_out = last_path.clone();
         tokio::spawn(async move {
             let mut lines = BufReader::new(out).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 if let Some(update) = parse_progress_line(&line) {
                     let _ = tx_out.send(Action::DownloadProgress { job_id, update });
+                } else if let Some(path) = extract_filepath(&line) {
+                    if let Ok(mut guard) = path_out.lock() {
+                        *guard = Some(path);
+                    }
                 }
             }
         });
@@ -188,17 +208,21 @@ pub async fn start_download(
 
     if let Some(err) = stderr {
         let tx_err = tx.clone();
+        let path_err = last_path.clone();
         tokio::spawn(async move {
             let mut lines = BufReader::new(err).lines();
             let mut last_error: Option<String> = None;
             while let Ok(Some(line)) = lines.next_line().await {
                 if let Some(update) = parse_progress_line(&line) {
                     let _ = tx_err.send(Action::DownloadProgress { job_id, update });
+                } else if let Some(path) = extract_filepath(&line) {
+                    if let Ok(mut guard) = path_err.lock() {
+                        *guard = Some(path);
+                    }
                 } else if looks_like_error(&line) {
                     last_error = Some(line);
                 }
             }
-            // last_error is consumed after wait in the watcher — stash via status if needed
             let _ = last_error;
         });
     }
@@ -214,6 +238,7 @@ pub async fn watch_download(
     mut child: Child,
     job_id: Uuid,
     output_dir: PathBuf,
+    last_path: PathTracker,
     tx: mpsc::UnboundedSender<Action>,
     mut cancel: mpsc::UnboundedReceiver<()>,
 ) {
@@ -226,13 +251,21 @@ pub async fn watch_download(
         result = child.wait() => {
             match result {
                 Ok(status) if status.success() => {
+                    // Brief pause so stdout flush from --print can land in the tracker.
+                    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+                    let path = last_path
+                        .lock()
+                        .ok()
+                        .and_then(|g| g.clone())
+                        .filter(|p| p.is_file())
+                        .or_else(|| newest_media_file(&output_dir))
+                        .unwrap_or(output_dir);
                     let _ = tx.send(Action::DownloadFinished {
                         job_id,
-                        output_path: Some(output_dir),
+                        output_path: Some(path),
                     });
                 }
                 Ok(status) => {
-                    // If we were cancelled, kill may produce non-zero — check was already handled
                     let code = status
                         .code()
                         .map(|c| c.to_string())
@@ -251,6 +284,72 @@ pub async fn watch_download(
             }
         }
     }
+}
+
+fn extract_filepath(line: &str) -> Option<PathBuf> {
+    let line = line.trim();
+    if line.is_empty() || parse_progress_line(line).is_some() {
+        return None;
+    }
+
+    if let Some(rest) = line.strip_prefix("[download] Destination: ") {
+        let p = PathBuf::from(rest.trim());
+        return Some(p);
+    }
+    if let Some(rest) = line.strip_prefix("[Merger] Merging formats into \"") {
+        let rest = rest.trim_end_matches('"');
+        return Some(PathBuf::from(rest));
+    }
+    if let Some(rest) = line.strip_prefix("[ExtractAudio] Destination: ") {
+        return Some(PathBuf::from(rest.trim()));
+    }
+
+    // Bare path from --print after_*:filepath
+    let p = PathBuf::from(line);
+    if line.starts_with('[') {
+        return None;
+    }
+    let looks_media = p
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|ext| {
+            matches!(
+                ext.to_ascii_lowercase().as_str(),
+                "mp4" | "mkv" | "webm" | "mp3" | "m4a" | "opus" | "ogg" | "wav" | "flac" | "aac"
+            )
+        });
+    if looks_media && (p.is_absolute() || line.contains('/')) {
+        return Some(p);
+    }
+    None
+}
+
+/// Fallback: most recently modified media file in the output directory.
+pub fn newest_media_file(dir: &Path) -> Option<PathBuf> {
+    let mut best: Option<(SystemTime, PathBuf)> = None;
+    let entries = std::fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.to_ascii_lowercase())?;
+        if !matches!(
+            ext.as_str(),
+            "mp4" | "mkv" | "webm" | "mp3" | "m4a" | "opus" | "ogg" | "wav" | "flac" | "aac"
+        ) {
+            continue;
+        }
+        let modified = entry.metadata().ok()?.modified().ok()?;
+        match &best {
+            Some((t, _)) if modified <= *t => {}
+            _ => best = Some((modified, path)),
+        }
+    }
+    best.map(|(_, p)| p)
 }
 
 fn first_nonempty_line(s: &str) -> Option<&str> {

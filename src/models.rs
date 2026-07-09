@@ -205,6 +205,7 @@ pub enum Focus {
     SettingsOutput,
     SettingsTemplate,
     SettingsLanguage,
+    SettingsAutoOpen,
 }
 
 #[derive(Debug, Clone)]

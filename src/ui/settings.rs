@@ -16,6 +16,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         Constraint::Length(3),
         Constraint::Length(3),
         Constraint::Length(3),
+        Constraint::Length(3),
         Constraint::Min(4),
     ])
     .split(area);
@@ -35,6 +36,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         app.focus == Focus::SettingsTemplate,
     );
     draw_language(frame, chunks[2], app);
+    draw_auto_open(frame, chunks[3], app);
 
     let help = vec![
         Line::from(Span::styled(
@@ -47,6 +49,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         Line::from(t.settings_tip_defaults),
         Line::from(t.settings_tip_file),
         Line::from(t.settings_tip_language),
+        Line::from(t.settings_tip_auto_open),
         Line::from(""),
         Line::from(Span::styled(
             t.settings_keys,
@@ -56,7 +59,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
 
     frame.render_widget(
         Paragraph::new(help).block(title_block(t.settings_title)),
-        chunks[3],
+        chunks[4],
     );
 }
 
@@ -94,6 +97,42 @@ fn draw_language(frame: &mut Frame, area: Rect, app: &App) {
     ));
 
     frame.render_widget(Paragraph::new(Line::from(spans)), inner);
+}
+
+fn draw_auto_open(frame: &mut Frame, area: Rect, app: &App) {
+    let t = app.t();
+    let focused = app.focus == Focus::SettingsAutoOpen;
+    let border = if focused { Color::Cyan } else { Color::Gray };
+    let block = title_block(t.settings_auto_open).border_style(Style::default().fg(border));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let on = app.config.auto_open;
+    let spans = vec![
+        Span::styled(format!("{}:  ", t.settings_auto_open), focused_style(focused)),
+        pill(t.settings_on, on, focused),
+        Span::raw("  "),
+        pill(t.settings_off, !on, focused),
+        Span::styled("   (←/→ / Enter)", Style::default().fg(Color::DarkGray)),
+    ];
+    frame.render_widget(Paragraph::new(Line::from(spans)), inner);
+}
+
+fn pill(label: &str, active: bool, section_focused: bool) -> Span<'static> {
+    let text = format!(" {label} ");
+    let style = if active {
+        Style::default()
+            .fg(Color::Black)
+            .bg(if section_focused {
+                Color::Cyan
+            } else {
+                Color::Green
+            })
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    Span::styled(text, style)
 }
 
 fn draw_field(frame: &mut Frame, area: Rect, title: &str, input: &Input, focused: bool) {

@@ -19,6 +19,13 @@ pub struct Config {
     pub default_audio_format: AudioFormat,
     #[serde(default)]
     pub language: Language,
+    /// Open the file with the system default app when a download finishes.
+    #[serde(default = "default_true")]
+    pub auto_open: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for Config {
@@ -30,6 +37,7 @@ impl Default for Config {
             default_quality: QualityPreset::Best,
             default_audio_format: AudioFormat::M4a,
             language: Language::En,
+            auto_open: true,
         }
     }
 }

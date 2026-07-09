@@ -10,8 +10,8 @@ use uuid::Uuid;
 use crate::action::Action;
 use crate::config::Config;
 use crate::downloader::{
-    build_output_template, fetch_video_info, start_download, watch_download, DownloadRequest,
-    Tools,
+    build_output_template, fetch_video_info, new_path_tracker, start_download, watch_download,
+    DownloadRequest, Tools,
 };
 use crate::i18n::{Language, Strings};
 use crate::models::{
@@ -179,6 +179,7 @@ impl App {
                 job_id,
                 output_path,
             } => {
+                let file_to_open = output_path.as_ref().filter(|p| p.is_file()).cloned();
                 if let Some(job) = self.find_job_mut(job_id) {
                     job.status = JobStatus::Done;
                     job.progress = 100.0;
@@ -187,6 +188,22 @@ impl App {
                     job.eta = None;
                     let title = job.display_title().to_string();
                     self.status_message = self.lang().msg_done(&title);
+                }
+                if self.config.auto_open {
+                    if let Some(path) = file_to_open {
+                        match open_path(&path) {
+                            Ok(()) => {
+                                self.status_message =
+                                    self.lang().msg_opened(&path.display().to_string());
+                            }
+                            Err(e) => {
+                                self.status_message = self.lang().msg_open_failed(
+                                    &e.to_string(),
+                                    &path.display().to_string(),
+                                );
+                            }
+                        }
+                    }
                 }
                 self.clear_active_if(job_id);
                 self.try_start_next_job();
@@ -534,9 +551,24 @@ impl App {
             KeyCode::Char('p') => self.cancel_active(),
             KeyCode::Enter => {
                 if let Some(job) = self.jobs.get(self.queue_selected) {
-                    if let Some(path) = &job.output_path {
-                        self.status_message =
-                            self.lang().msg_saved_at(&path.display().to_string());
+                    if let Some(path) = job.output_path.clone() {
+                        if path.is_file() {
+                            match open_path(&path) {
+                                Ok(()) => {
+                                    self.status_message =
+                                        self.lang().msg_opened(&path.display().to_string());
+                                }
+                                Err(e) => {
+                                    self.status_message = self.lang().msg_open_failed(
+                                        &e.to_string(),
+                                        &path.display().to_string(),
+                                    );
+                                }
+                            }
+                        } else {
+                            self.status_message =
+                                self.lang().msg_saved_at(&path.display().to_string());
+                        }
                     } else if let Some(err) = &job.error {
                         self.status_message = self.lang().msg_error(err);
                     } else {
@@ -562,15 +594,17 @@ impl App {
                 self.focus = match self.focus {
                     Focus::SettingsOutput => Focus::SettingsTemplate,
                     Focus::SettingsTemplate => Focus::SettingsLanguage,
-                    Focus::SettingsLanguage => Focus::SettingsOutput,
+                    Focus::SettingsLanguage => Focus::SettingsAutoOpen,
+                    Focus::SettingsAutoOpen => Focus::SettingsOutput,
                     _ => Focus::SettingsOutput,
                 };
             }
             KeyCode::BackTab => {
                 self.focus = match self.focus {
-                    Focus::SettingsOutput => Focus::SettingsLanguage,
+                    Focus::SettingsOutput => Focus::SettingsAutoOpen,
                     Focus::SettingsTemplate => Focus::SettingsOutput,
                     Focus::SettingsLanguage => Focus::SettingsTemplate,
+                    Focus::SettingsAutoOpen => Focus::SettingsLanguage,
                     _ => Focus::SettingsOutput,
                 };
             }
@@ -582,12 +616,17 @@ impl App {
                         self.t().settings_language,
                         self.config.language.native_label()
                     );
+                } else if self.focus == Focus::SettingsAutoOpen {
+                    self.config.auto_open = !self.config.auto_open;
                 } else {
                     self.apply_and_save_settings();
                 }
             }
             KeyCode::Left | KeyCode::Right if self.focus == Focus::SettingsLanguage => {
                 self.config.language = self.config.language.next();
+            }
+            KeyCode::Left | KeyCode::Right if self.focus == Focus::SettingsAutoOpen => {
+                self.config.auto_open = !self.config.auto_open;
             }
             _ => {
                 if matches!(
@@ -638,6 +677,7 @@ impl App {
         self.config.default_mode = self.mode;
         self.config.default_quality = self.quality;
         self.config.default_audio_format = self.audio_format;
+        // language + auto_open already live on config
         match self.config.save() {
             Ok(()) => {
                 self.status_message = self.t().status_settings_saved.into();
@@ -754,9 +794,10 @@ impl App {
         self.cancel_tx = Some(cancel_tx);
 
         tokio::spawn(async move {
-            match start_download(&tools, req, tx.clone()).await {
+            let last_path = new_path_tracker();
+            match start_download(&tools, req, tx.clone(), last_path.clone()).await {
                 Ok(child) => {
-                    watch_download(child, job_id, output_dir, tx, cancel_rx).await;
+                    watch_download(child, job_id, output_dir, last_path, tx, cancel_rx).await;
                 }
                 Err(e) => {
                     let _ = tx.send(Action::DownloadFailed {

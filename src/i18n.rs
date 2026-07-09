@@ -112,11 +112,15 @@ pub struct Strings {
     pub settings_output: &'static str,
     pub settings_template: &'static str,
     pub settings_language: &'static str,
+    pub settings_auto_open: &'static str,
+    pub settings_on: &'static str,
+    pub settings_off: &'static str,
     pub settings_tips: &'static str,
     pub settings_tip_template: &'static str,
     pub settings_tip_defaults: &'static str,
     pub settings_tip_file: &'static str,
     pub settings_tip_language: &'static str,
+    pub settings_tip_auto_open: &'static str,
     pub settings_keys: &'static str,
 
     // Help
@@ -248,12 +252,16 @@ pub static EN: Strings = Strings {
     settings_output: "Output folder",
     settings_template: "Filename template (yt-dlp)",
     settings_language: "Language",
+    settings_auto_open: "Auto-open after download",
+    settings_on: "On",
+    settings_off: "Off",
     settings_tips: "Tips",
     settings_tip_template: "• Template uses yt-dlp placeholders: %(title)s %(id)s %(ext)s …",
     settings_tip_defaults: "• Current mode/quality defaults are also saved on Enter",
     settings_tip_file: "• File: ~/.config/ytui-dl/config.toml",
     settings_tip_language: "• Language applies immediately and is saved with the rest",
-    settings_keys: "Enter = save   Esc = cancel   Tab = next field   ←/→ = language",
+    settings_tip_auto_open: "• Auto-open uses the system player (xdg-open / open / explorer)",
+    settings_keys: "Enter = save   Esc = cancel   Tab = field   ←/→ = toggle",
 
     help_title: "Help",
     help_shortcuts: "Shortcuts",
@@ -381,12 +389,16 @@ pub static PT_BR: Strings = Strings {
     settings_output: "Pasta de saída",
     settings_template: "Template do nome do arquivo (yt-dlp)",
     settings_language: "Idioma",
+    settings_auto_open: "Abrir automaticamente após baixar",
+    settings_on: "Sim",
+    settings_off: "Não",
     settings_tips: "Dicas",
     settings_tip_template: "• Template usa placeholders do yt-dlp: %(title)s %(id)s %(ext)s …",
     settings_tip_defaults: "• Os defaults de modo/qualidade atuais também são salvos ao pressionar Enter",
     settings_tip_file: "• Arquivo: ~/.config/ytui-dl/config.toml",
     settings_tip_language: "• O idioma aplica na hora e é salvo junto com o resto",
-    settings_keys: "Enter = salvar   Esc = cancelar   Tab = campo   ←/→ = idioma",
+    settings_tip_auto_open: "• Auto-open usa o player do sistema (xdg-open / open / explorer)",
+    settings_keys: "Enter = salvar   Esc = cancelar   Tab = campo   ←/→ = alternar",
 
     help_title: "Ajuda",
     help_shortcuts: "Atalhos",
@@ -506,8 +518,15 @@ impl Language {
 
     pub fn msg_open_failed(self, e: &str, path: &str) -> String {
         match self {
-            Self::En => format!("Could not open folder: {e} (path: {path})"),
-            Self::PtBr => format!("Não foi possível abrir pasta: {e} (path: {path})"),
+            Self::En => format!("Could not open: {e} (path: {path})"),
+            Self::PtBr => format!("Não foi possível abrir: {e} (path: {path})"),
+        }
+    }
+
+    pub fn msg_opened(self, path: &str) -> String {
+        match self {
+            Self::En => format!("Opened: {path}"),
+            Self::PtBr => format!("Aberto: {path}"),
         }
     }
 

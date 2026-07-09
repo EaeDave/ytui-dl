@@ -123,7 +123,10 @@ default_mode = "video"
 default_quality = "best"
 default_audio_format = "m4a"
 language = "en"
+auto_open = true   # open file with the system player when download finishes
 ```
+
+When `auto_open` is on (default), the finished video/audio is opened with the OS default app (`xdg-open` on Linux). Toggle in **Settings** or set `auto_open = false` in the config.
 
 Default output: `~/Downloads/ytui-dl/` (or home if Downloads is missing).
 

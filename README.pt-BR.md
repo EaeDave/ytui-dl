@@ -123,7 +123,10 @@ default_mode = "video"
 default_quality = "best"
 default_audio_format = "m4a"
 language = "pt-BR"
+auto_open = true   # abre o arquivo no player do sistema ao terminar
 ```
+
+Com `auto_open` ligado (padrão), o vídeo/áudio concluído abre no app padrão do SO (`xdg-open` no Linux). Alternar em **Configurações** ou `auto_open = false` no config.
 
 Padrão de saída: `~/Downloads/ytui-dl/` (ou home se Downloads não existir).
 
