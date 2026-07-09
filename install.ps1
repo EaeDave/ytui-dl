@@ -3,13 +3,11 @@
 #   irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 #
 # Installs to: %LOCALAPPDATA%\ytui-dl\bin\ytui-dl.exe
+# Adds that folder to the *current session* PATH and the user PATH permanently.
 # Optionally installs yt-dlp + ffmpeg via winget (asks Y/n).
-#
-# Tip: if the window closes too fast, run:
-#   powershell -NoExit -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex"
 
 $ErrorActionPreference = "Stop"
-$ProgressPreference = "SilentlyContinue"  # faster, avoids flaky IWR progress UI
+$ProgressPreference = "SilentlyContinue"
 
 $Repo = "EaeDave/ytui-dl"
 $BinName = "ytui-dl.exe"
@@ -19,20 +17,18 @@ $InstallPath = Join-Path $InstallDir $BinName
 
 function Write-Info([string]$msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Write-Warn([string]$msg) { Write-Host "!!  $msg" -ForegroundColor Yellow }
-function Pause-Exit([int]$code = 1) {
+
+function Pause-Soft {
     Write-Host ""
-    Write-Host "Press Enter to close..." -ForegroundColor DarkGray
-    try {
-        # Works when interactive; no-ops if stdin is closed
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    } catch {
-        try { [void](Read-Host) } catch { Start-Sleep -Seconds 12 }
-    }
-    exit $code
+    Write-Host "Press Enter to continue..." -ForegroundColor DarkGray
+    try { [void](Read-Host) } catch { Start-Sleep -Seconds 8 }
 }
+
 function Die([string]$msg) {
     Write-Host "error: $msg" -ForegroundColor Red
-    Pause-Exit 1
+    Pause-Soft
+    # Prefer return over exit so parent shells (and -NoExit) stay usable
+    throw $msg
 }
 
 function Get-LatestTag {
@@ -44,7 +40,6 @@ function Get-LatestTag {
         Write-Warn "GitHub API failed: $($_.Exception.Message)"
     }
 
-    # Fallback: curl follows redirects and prints final URL
     if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
         $final = & curl.exe -fsSLI -o NUL -w "%{url_effective}" -A "ytui-dl-install" `
             "https://github.com/$Repo/releases/latest" 2>$null
@@ -66,24 +61,30 @@ function Version-Gt([string]$a, [string]$b) {
 }
 
 function Ensure-UserPath([string]$dir) {
+    # 1) Permanent user PATH
     $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
     if (-not $userPath) { $userPath = "" }
     $parts = $userPath -split ";" | Where-Object { $_ -ne "" }
-    if ($parts -contains $dir) { return }
-    $newPath = if ($userPath.TrimEnd(";")) { "$userPath;$dir" } else { $dir }
-    [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-    $env:Path = "$dir;$env:Path"
-    Write-Warn "Added $dir to your user PATH (open a new terminal if needed)"
+    if ($parts -notcontains $dir) {
+        $newPath = if ($userPath.TrimEnd(";")) { "$userPath;$dir" } else { $dir }
+        [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+        Write-Warn "Added $dir to your user PATH (new terminals will see ytui-dl)"
+    }
+
+    # 2) Current session PATH (critical — parent shells won't get this unless we set it here)
+    $sessionParts = $env:Path -split ";" | Where-Object { $_ -ne "" }
+    if ($sessionParts -notcontains $dir) {
+        $env:Path = "$dir;$env:Path"
+    }
 }
 
-function Download-File([string]$Url, [string]$OutFile) {
+function Download-File([string]$Url, [string]$OutFile, [int]$MinBytes = 64) {
     $dir = Split-Path -Parent $OutFile
     if ($dir -and -not (Test-Path $dir)) {
         New-Item -ItemType Directory -Path $dir | Out-Null
     }
     if (Test-Path $OutFile) { Remove-Item -Force $OutFile }
 
-    # Prefer curl.exe (ships with Windows 10+) — more reliable than Invoke-WebRequest for large files
     if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
         Write-Info "using curl.exe"
         & curl.exe -fL --retry 4 --retry-all-errors --connect-timeout 15 --max-time 600 `
@@ -102,8 +103,12 @@ function Download-File([string]$Url, [string]$OutFile) {
         }
     }
 
-    if (-not (Test-Path $OutFile) -or (Get-Item $OutFile).Length -lt 1024) {
-        throw "download incomplete or too small: $OutFile"
+    if (-not (Test-Path $OutFile)) {
+        throw "download missing: $OutFile"
+    }
+    $len = (Get-Item $OutFile).Length
+    if ($len -lt $MinBytes) {
+        throw "download incomplete or too small ($len bytes, need >= $MinBytes): $OutFile"
     }
 }
 
@@ -121,23 +126,27 @@ function Ensure-RuntimeDeps {
     }
 
     if (-not (Test-Cmd "winget")) {
-        Write-Warn "winget not found — install yt-dlp and ffmpeg manually, then re-open the terminal"
-        if ($needYt) { Write-Warn "  missing: yt-dlp" }
-        if ($needFf) { Write-Warn "  missing: ffmpeg" }
+        Write-Warn "winget not found — install yt-dlp and ffmpeg manually"
         return
     }
 
     Write-Host ""
     Write-Host "Runtime dependencies:" -ForegroundColor Magenta
-    if ($needYt) { Write-Host "  - yt-dlp  (required to download)" -ForegroundColor Yellow }
+    if ($needYt) { Write-Host "  - yt-dlp  (required)" -ForegroundColor Yellow }
     else { Write-Host "  - yt-dlp  (found)" -ForegroundColor Green }
-    if ($needFf) { Write-Host "  - ffmpeg  (recommended for merge / WhatsApp profile)" -ForegroundColor Yellow }
+    if ($needFf) { Write-Host "  - ffmpeg  (recommended)" -ForegroundColor Yellow }
     else { Write-Host "  - ffmpeg  (found)" -ForegroundColor Green }
     Write-Host ""
 
-    $ans = Read-Host "Install missing deps with winget now? [Y/n]"
+    # When piped (irm | iex), Read-Host often still works in an interactive console
+    $ans = "Y"
+    try {
+        $ans = Read-Host "Install missing deps with winget now? [Y/n]"
+    } catch {
+        $ans = "Y"
+    }
     if ($ans -match '^[nN]') {
-        Write-Warn "skipped winget installs — ytui-dl needs yt-dlp on PATH to work"
+        Write-Warn "skipped winget installs"
         return
     }
 
@@ -158,16 +167,12 @@ function Ensure-RuntimeDeps {
         }
     }
 
-    # Refresh PATH from Machine + User for this session
     $machine = [Environment]::GetEnvironmentVariable("Path", "Machine")
     $user = [Environment]::GetEnvironmentVariable("Path", "User")
     $env:Path = "$machine;$user"
-
-    if (Test-Cmd "yt-dlp") { Write-Info "yt-dlp OK" } else { Write-Warn "yt-dlp still not on PATH — open a new terminal" }
-    if (Test-Cmd "ffmpeg") { Write-Info "ffmpeg OK" } else { Write-Warn "ffmpeg still not on PATH — open a new terminal" }
 }
 
-# --- args (when script is saved and run as .\install.ps1) ---
+# --- args ---
 $Force = $false
 $Uninstall = $false
 $Check = $false
@@ -184,14 +189,9 @@ ytui-dl Windows installer
 
   irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 
-Or download install.ps1 and run:
-  .\install.ps1
-  .\install.ps1 --force
-  .\install.ps1 --uninstall
-  .\install.ps1 --check
-  .\install.ps1 --skip-deps
+  .\install.ps1 --force | --uninstall | --check | --skip-deps
 "@
-            exit 0
+            return
         }
     }
 }
@@ -205,7 +205,7 @@ try {
         } else {
             Die "not installed at $InstallPath"
         }
-        Pause-Exit 0
+        return
     }
 
     Write-Info "resolving latest release…"
@@ -225,14 +225,17 @@ try {
     if ($Check) {
         Write-Host "installed:  $(if ($localVer) { $localVer } else { '(not found)' })"
         Write-Host "remote:     $remote"
-        Pause-Exit 0
+        return
     }
 
     if ($localVer -and -not $Force) {
         if (-not (Version-Gt $remote $localVer)) {
             Write-Info "already up to date ($localVer)"
+            Ensure-UserPath $InstallDir
             if (-not $SkipDeps) { Ensure-RuntimeDeps }
-            Pause-Exit 0
+            Write-Host ""
+            Write-Info "run: ytui-dl   or   & `"$InstallPath`""
+            return
         }
         Write-Info "updating $localVer → $remote"
     } else {
@@ -244,9 +247,8 @@ try {
     Write-Info "downloading $Asset"
     Write-Info $downloadUrl
     try {
-        Download-File -Url $downloadUrl -OutFile $tmp
-        $size = (Get-Item $tmp).Length
-        Write-Info ("download complete ({0:N0} bytes)" -f $size)
+        Download-File -Url $downloadUrl -OutFile $tmp -MinBytes 100000
+        Write-Info ("download complete ({0:N0} bytes)" -f (Get-Item $tmp).Length)
     } catch {
         Die "download failed: $downloadUrl — $($_.Exception.Message)"
     }
@@ -254,7 +256,8 @@ try {
     $sumUrl = "$downloadUrl.sha256"
     try {
         $sumTmp = Join-Path $env:TEMP "ytui-dl-install-$PID.sha256"
-        Download-File -Url $sumUrl -OutFile $sumTmp
+        # checksum files are tiny (~100 bytes)
+        Download-File -Url $sumUrl -OutFile $sumTmp -MinBytes 32
         $sumText = Get-Content -Raw $sumTmp
         Remove-Item -Force $sumTmp -ErrorAction SilentlyContinue
         $expected = ($sumText -split "\s+")[0].ToLower()
@@ -302,9 +305,20 @@ try {
     }
 
     Write-Host ""
-    Write-Info "done. Open a new terminal and run: ytui-dl"
-    Write-Host "  (Windows Terminal recommended)" -ForegroundColor DarkGray
-    Pause-Exit 0
+    Write-Host "================================================" -ForegroundColor Green
+    Write-Info "done!"
+    Write-Host "  Full path:  & `"$InstallPath`"" -ForegroundColor White
+    Write-Host "  Or reopen Windows Terminal and run:  ytui-dl" -ForegroundColor White
+    Write-Host "================================================" -ForegroundColor Green
+    Write-Host ""
+    # Try invoking immediately in this session
+    try {
+        Write-Info "smoke test in this session:"
+        & $InstallPath --version
+    } catch {
+        Write-Warn "smoke test failed: $($_.Exception.Message)"
+    }
 } catch {
-    Die $_.Exception.Message
+    Write-Host "error: $($_.Exception.Message)" -ForegroundColor Red
+    Pause-Soft
 }
