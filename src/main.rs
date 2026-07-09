@@ -17,8 +17,50 @@ use crate::config::Config;
 use crate::event::EventHandler;
 use crate::tui::Tui;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+fn print_version() {
+    println!("ytui-dl {VERSION}");
+}
+
+fn print_cli_help() {
+    println!(
+        "\
+ytui-dl {VERSION} — YouTube TUI downloader
+
+Usage:
+  ytui-dl              Start the TUI
+  ytui-dl --version    Print version
+  ytui-dl --help       Print this help
+
+Install / update / uninstall (from the repo script):
+  curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --uninstall
+"
+    );
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    let mut args = std::env::args().skip(1);
+    if let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-V" | "--version" | "version" => {
+                print_version();
+                return Ok(());
+            }
+            "-h" | "--help" | "help" => {
+                print_cli_help();
+                return Ok(());
+            }
+            other => {
+                eprintln!("unknown argument: {other}");
+                eprintln!("try: ytui-dl --help");
+                std::process::exit(2);
+            }
+        }
+    }
+
     color_eyre::install()?;
 
     let config = Config::load();

@@ -4,12 +4,14 @@
 
 Backend: **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** · Interface: **[Ratatui](https://ratatui.rs/)**
 
-## Dependências do sistema
+## Instalação rápida
+
+### 1. Dependências de runtime
 
 | Ferramenta | Obrigatório | Função |
 |------------|-------------|--------|
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | **Sim** | Extrair e baixar mídia do YouTube |
-| [ffmpeg](https://ffmpeg.org/) | Recomendado | Merge vídeo+áudio e conversão de áudio (mp3/m4a/opus) |
+| [ffmpeg](https://ffmpeg.org/) | Recomendado | Merge vídeo+áudio e conversão de áudio |
 
 ```bash
 # Arch
@@ -22,15 +24,54 @@ sudo apt install yt-dlp ffmpeg
 brew install yt-dlp ffmpeg
 ```
 
-## Build e execução
+### 2. Instalar o binário (Linux)
+
+O script instala em **`~/.local/bin/ytui-dl`** (no PATH do usuário) e **atualiza sozinho** se existir release mais nova:
 
 ```bash
-cargo install --path .
-# ou
-cargo run --release
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
 ```
 
-Binário: `ytui-dl`
+Depois:
+
+```bash
+ytui-dl
+```
+
+#### Atualizar / forçar / desinstalar
+
+```bash
+# Atualiza se houver release mais recente (padrão)
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+
+# Reinstala mesmo na mesma versão
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --force
+
+# Ver instalado vs remote
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --check
+
+# Remover do PATH de instalação
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --uninstall
+
+# Instalação system-wide (pode pedir sudo)
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --system
+```
+
+Se `~/.local/bin` não estiver no PATH, o script avisa. No bash/zsh:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+# ou ~/.zshrc
+```
+
+### Build a partir do código
+
+```bash
+cargo install --git https://github.com/EaeDave/ytui-dl
+# ou
+git clone https://github.com/EaeDave/ytui-dl
+cd ytui-dl && cargo install --path .
+```
 
 ## Uso
 
@@ -68,6 +109,16 @@ default_audio_format = "m4a"
 ```
 
 Padrão de saída: `~/Downloads/ytui-dl/` (ou home se Downloads não existir).
+
+## Releases
+
+Binários oficiais: [GitHub Releases](https://github.com/EaeDave/ytui-dl/releases)
+
+Assets por arquitetura, por exemplo:
+
+- `ytui-dl-x86_64-unknown-linux-gnu`
+- `ytui-dl-aarch64-unknown-linux-gnu`
+- `*.sha256` (checksums)
 
 ## Stack
 
