@@ -356,11 +356,17 @@ impl App {
             KeyCode::Left | KeyCode::Right if self.focus == Focus::Mode => {
                 self.mode = self.mode.toggle();
             }
-            KeyCode::Left | KeyCode::Right if self.focus == Focus::Quality => {
+            KeyCode::Right if self.focus == Focus::Quality => {
                 self.quality = self.quality.next();
             }
-            KeyCode::Left | KeyCode::Right if self.focus == Focus::AudioFormat => {
+            KeyCode::Left if self.focus == Focus::Quality => {
+                self.quality = self.quality.prev();
+            }
+            KeyCode::Right if self.focus == Focus::AudioFormat => {
                 self.audio_format = self.audio_format.next();
+            }
+            KeyCode::Left if self.focus == Focus::AudioFormat => {
+                self.audio_format = self.audio_format.prev();
             }
             _ if self.focus == Focus::UrlInput => {
                 self.forward_to_url_input(key);
@@ -414,9 +420,9 @@ impl App {
             }
             KeyCode::BackTab | KeyCode::Left => {
                 if self.mode == MediaMode::Video {
-                    self.quality = self.quality.next();
+                    self.quality = self.quality.prev();
                 } else {
-                    self.audio_format = self.audio_format.next();
+                    self.audio_format = self.audio_format.prev();
                 }
             }
             KeyCode::Char('m') => self.mode = self.mode.toggle(),

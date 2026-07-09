@@ -88,6 +88,16 @@ impl QualityPreset {
         }
     }
 
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Best => Self::Worst,
+            Self::P1080 => Self::Best,
+            Self::P720 => Self::P1080,
+            Self::P480 => Self::P720,
+            Self::Worst => Self::P480,
+        }
+    }
+
     pub fn from_digit(d: char) -> Option<Self> {
         match d {
             '1' => Some(Self::Best),
@@ -138,6 +148,15 @@ impl AudioFormat {
             Self::Mp3 => Self::Opus,
             Self::Opus => Self::Best,
             Self::Best => Self::M4a,
+        }
+    }
+
+    pub fn prev(self) -> Self {
+        match self {
+            Self::M4a => Self::Best,
+            Self::Mp3 => Self::M4a,
+            Self::Opus => Self::Mp3,
+            Self::Best => Self::Opus,
         }
     }
 }
