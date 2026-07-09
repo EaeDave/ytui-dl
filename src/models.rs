@@ -43,10 +43,10 @@ impl MediaMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputProfile {
-    /// Best quality (VP9/AV1/Opus OK) — default for archiving.
-    #[default]
+    /// Best quality (VP9/AV1/Opus OK) — good for archiving.
     Best,
-    /// H.264 + AAC MP4 suitable for WhatsApp and picky players.
+    /// H.264 + AAC MP4 suitable for WhatsApp and picky players (default).
+    #[default]
     #[serde(alias = "compatible", alias = "whatsapp")]
     WhatsApp,
 }

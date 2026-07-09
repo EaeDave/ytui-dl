@@ -140,7 +140,7 @@ Arquivo: `~/.config/ytui-dl/config.toml`
 output_dir = "/home/voce/Downloads/ytui-dl"
 output_template = "%(title)s [%(id)s].%(ext)s"
 default_mode = "video"
-default_profile = "best"   # ou "whats_app" / "whatsapp"
+default_profile = "whats_app"   # ou "best" / "whatsapp" (padrão: WhatsApp)
 default_quality = "best"
 default_audio_format = "m4a"
 language = "pt-BR"

@@ -36,7 +36,7 @@ impl Default for Config {
             output_dir: default_output_dir(),
             output_template: "%(title)s [%(id)s].%(ext)s".into(),
             default_mode: MediaMode::Video,
-            default_profile: OutputProfile::Best,
+            default_profile: OutputProfile::WhatsApp,
             default_quality: QualityPreset::Best,
             default_audio_format: AudioFormat::M4a,
             language: Language::En,

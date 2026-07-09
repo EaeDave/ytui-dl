@@ -163,7 +163,7 @@ File: `~/.config/ytui-dl/config.toml`
 output_dir = "/home/you/Downloads/ytui-dl"
 output_template = "%(title)s [%(id)s].%(ext)s"
 default_mode = "video"
-default_profile = "best"   # or "whats_app" / "whatsapp"
+default_profile = "whats_app"   # or "best" / "whatsapp" (default: WhatsApp)
 default_quality = "best"
 default_audio_format = "m4a"
 language = "en"
