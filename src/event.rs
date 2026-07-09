@@ -19,6 +19,9 @@ impl EventHandler {
             let mut reader = EventStream::new();
             let mut tick_interval = interval(Duration::from_secs_f64(1.0 / tick_rate));
             let mut render_interval = interval(Duration::from_secs_f64(1.0 / frame_rate));
+            // First ticks complete immediately — skip so we don't flood before first draw.
+            tick_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            render_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
             loop {
                 let tick = tick_interval.tick();
@@ -51,7 +54,13 @@ impl EventHandler {
                                         .into(),
                                 ));
                             }
-                            None => break,
+                            // Do NOT tear down the whole app if the event stream ends —
+                            // keep ticks/renders so the TUI stays alive (important on Windows).
+                            None => {
+                                // Replace dead stream after a short pause.
+                                tokio::time::sleep(Duration::from_millis(50)).await;
+                                reader = EventStream::new();
+                            }
                         }
                     }
                 }
@@ -64,7 +73,17 @@ impl EventHandler {
 
 fn handle_crossterm(evt: CrosstermEvent, tx: &mpsc::UnboundedSender<Action>) -> Result<()> {
     match evt {
-        CrosstermEvent::Key(key) if key.kind == KeyEventKind::Press => {
+        // Windows emits Press and Release; some setups only expose the default kind.
+        CrosstermEvent::Key(key)
+            if key.kind == KeyEventKind::Press || key.kind == KeyEventKind::Repeat =>
+        {
+            let _ = tx.send(Action::Key(key));
+        }
+        CrosstermEvent::Key(key) if key.kind == KeyEventKind::Release => {
+            // ignore releases
+        }
+        CrosstermEvent::Key(key) => {
+            // Fallback for backends that don't set kind correctly.
             let _ = tx.send(Action::Key(key));
         }
         CrosstermEvent::Paste(text) => {
@@ -77,4 +96,3 @@ fn handle_crossterm(evt: CrosstermEvent, tx: &mpsc::UnboundedSender<Action>) -> 
     }
     Ok(())
 }
-

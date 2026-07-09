@@ -17,6 +17,7 @@ FORCE=0
 UNINSTALL=0
 SYSTEM=0
 CHECK_ONLY=0
+SKIP_DEPS=0
 
 info()  { printf '==> %s\n' "$*"; }
 warn()  { printf '!!  %s\n' "$*" >&2; }
@@ -249,6 +250,7 @@ do_install() {
     if version_eq "$remote_ver" "$local_ver" && [[ "$FORCE" -eq 0 ]]; then
       info "já está na versão mais recente (${local_ver}). Use --force para reinstalar."
       check_path
+      if [[ "$SKIP_DEPS" -eq 0 ]]; then ensure_runtime_deps; fi
       exit 0
     fi
     if version_gt "$remote_ver" "$local_ver"; then
@@ -291,7 +293,63 @@ do_install() {
   local final_ver
   final_ver="$("$dest" --version 2>/dev/null | awk '{print $NF}' || echo "$remote_ver")"
   info "pronto: ${dest} (${final_ver})"
-  info "runtime: instale yt-dlp (obrigatório) e ffmpeg (recomendado)"
+
+  if [[ "$SKIP_DEPS" -eq 0 ]]; then
+    ensure_runtime_deps
+  else
+    info "runtime: yt-dlp (required) + ffmpeg (recommended)"
+  fi
+}
+
+ensure_runtime_deps() {
+  local need_yt=0 need_ff=0
+  command -v yt-dlp >/dev/null 2>&1 || need_yt=1
+  command -v ffmpeg >/dev/null 2>&1 || need_ff=1
+
+  if [[ "$need_yt" -eq 0 && "$need_ff" -eq 0 ]]; then
+    info "yt-dlp and ffmpeg already on PATH"
+    return 0
+  fi
+
+  echo
+  echo "Runtime dependencies:"
+  if [[ "$need_yt" -eq 1 ]]; then echo "  - yt-dlp  (required)"; else echo "  - yt-dlp  (found)"; fi
+  if [[ "$need_ff" -eq 1 ]]; then echo "  - ffmpeg  (recommended)"; else echo "  - ffmpeg  (found)"; fi
+  echo
+
+  # Non-interactive (piped curl | bash): skip prompts
+  if [[ ! -t 0 ]]; then
+    warn "non-interactive shell — install deps yourself:"
+    warn "  sudo pacman -S yt-dlp ffmpeg   # or apt / brew"
+    return 0
+  fi
+
+  printf "Install missing deps with the system package manager? [Y/n] "
+  read -r ans || ans=n
+  if [[ "$ans" =~ ^[nN] ]]; then
+    warn "skipped — ytui-dl needs yt-dlp on PATH"
+    return 0
+  fi
+
+  if command -v pacman >/dev/null 2>&1; then
+    local pkgs=()
+    [[ "$need_yt" -eq 1 ]] && pkgs+=(yt-dlp)
+    [[ "$need_ff" -eq 1 ]] && pkgs+=(ffmpeg)
+    info "sudo pacman -S ${pkgs[*]}"
+    sudo pacman -S --needed "${pkgs[@]}"
+  elif command -v apt-get >/dev/null 2>&1; then
+    local pkgs=()
+    [[ "$need_yt" -eq 1 ]] && pkgs+=(yt-dlp)
+    [[ "$need_ff" -eq 1 ]] && pkgs+=(ffmpeg)
+    info "sudo apt-get install -y ${pkgs[*]}"
+    sudo apt-get update -qq
+    sudo apt-get install -y "${pkgs[@]}"
+  elif command -v brew >/dev/null 2>&1; then
+    [[ "$need_yt" -eq 1 ]] && brew install yt-dlp
+    [[ "$need_ff" -eq 1 ]] && brew install ffmpeg
+  else
+    warn "no supported package manager found (pacman/apt/brew)"
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -318,6 +376,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --check)
       CHECK_ONLY=1
+      shift
+      ;;
+    --skip-deps)
+      SKIP_DEPS=1
       shift
       ;;
     -h|--help)

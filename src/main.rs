@@ -10,7 +10,9 @@ mod tui;
 mod ui;
 mod updater;
 
-use color_eyre::eyre::Result;
+use std::io::{self, IsTerminal, Write};
+
+use color_eyre::eyre::{bail, Result, WrapErr};
 use tokio::sync::mpsc;
 
 use crate::action::Action;
@@ -47,7 +49,23 @@ First-time install:
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
+    if let Err(e) = run().await {
+        // Always surface errors — some Windows hosts swallow panics poorly.
+        eprintln!("ytui-dl error: {e:#}");
+        let _ = io::stderr().flush();
+        // Keep console visible briefly when double-started; no-op in normal terminals.
+        #[cfg(windows)]
+        {
+            if std::env::var_os("YTUI_NO_PAUSE").is_none() && !io::stdin().is_terminal() {
+                // non-interactive
+            }
+        }
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if let Some(arg) = args.first().map(|s| s.as_str()) {
         match arg {
@@ -61,28 +79,31 @@ async fn main() -> Result<()> {
             }
             "--update" | "update" => {
                 let force = args.iter().any(|a| a == "--force" || a == "-f");
-                if let Err(e) = updater::run_self_update(force).await {
-                    eprintln!("error: {e:#}");
-                    std::process::exit(1);
-                }
+                updater::run_self_update(force)
+                    .await
+                    .wrap_err("update failed")?;
                 return Ok(());
             }
             "--uninstall" | "uninstall" => {
-                if let Err(e) = updater::run_uninstall() {
-                    eprintln!("error: {e:#}");
-                    std::process::exit(1);
-                }
+                updater::run_uninstall().wrap_err("uninstall failed")?;
                 return Ok(());
             }
             other => {
-                eprintln!("unknown argument: {other}");
-                eprintln!("try: ytui-dl --help");
-                std::process::exit(2);
+                bail!("unknown argument: {other}\ntry: ytui-dl --help");
             }
         }
     }
 
-    color_eyre::install()?;
+    // Interactive TUI requires a real terminal (not a pipe / background job).
+    if !io::stdout().is_terminal() {
+        bail!(
+            "stdout is not an interactive terminal.\n\
+             Open Windows Terminal (or conhost) and run: ytui-dl\n\
+             Or check the binary with: ytui-dl --version"
+        );
+    }
+
+    color_eyre::install().wrap_err("install error handler")?;
 
     let config = Config::load();
     let mut app = App::new(config);
@@ -92,36 +113,44 @@ async fn main() -> Result<()> {
     // Background: notify if a newer GitHub release exists (never blocks UI).
     updater::spawn_check(action_tx.clone());
 
-    let mut tui = Tui::new()?;
-    tui.enter()?;
+    let mut tui = Tui::new().wrap_err("init TUI")?;
+    tui.enter().wrap_err(
+        "enter TUI mode — on Windows, prefer Windows Terminal over legacy console",
+    )?;
 
-    // Event pump: keyboard / tick / render
-    let _events = EventHandler::new(action_tx.clone(), 4.0, 30.0);
+    // Keep the event handler alive for the whole session (do not prefix with `_` alone in a way that drops).
+    let _event_handler = EventHandler::new(action_tx.clone(), 4.0, 30.0);
 
     // Initial render
-    tui.terminal().draw(|frame| ui::draw(frame, &app))?;
+    tui.terminal()
+        .draw(|frame| ui::draw(frame, &app))
+        .wrap_err("initial draw")?;
+
+    // Keep sender alive so the channel never closes while the UI runs.
+    let _keep_tx = action_tx;
 
     loop {
         let Some(action) = action_rx.recv().await else {
-            break;
+            // Should not happen while _keep_tx lives; treat as fatal.
+            bail!("event channel closed unexpectedly");
         };
 
-        app.update(action)?;
+        app.update(action).wrap_err("app update")?;
 
         if app.should_quit {
             break;
         }
 
-        // Redraw after every action for snappy UX (event loop is already rate-limited by ticks)
-        tui.terminal().draw(|frame| ui::draw(frame, &app))?;
+        tui.terminal()
+            .draw(|frame| ui::draw(frame, &app))
+            .wrap_err("draw frame")?;
     }
 
     let should_restart = app.should_restart;
     let restart_path = app.restart_path.clone();
-    tui.exit()?;
+    tui.exit().wrap_err("leave TUI")?;
 
     if should_restart {
-        // Linux: re-exec the updated binary path (not current_exe if marked deleted).
         if let Err(e) = updater::reexec_self(restart_path) {
             eprintln!("error: could not restart: {e:#}");
             eprintln!("launch manually: ytui-dl");
