@@ -39,8 +39,9 @@ Usage:
   ytui-dl --uninstall  Remove the installed binary (keeps config/downloads)
   ytui-dl --help       Print this help
 
-First-time install (script):
-  curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+First-time install:
+  Linux:   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+  Windows: irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 "
     );
 }

@@ -2142,7 +2142,7 @@ checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
 name = "ytui-dl"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "color-eyre",
  "crossterm",
@@ -2153,6 +2153,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",

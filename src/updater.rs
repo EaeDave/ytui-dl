@@ -1,7 +1,4 @@
-//! Update check and self-update against GitHub Releases (Linux first).
-//!
-//! Windows support can reuse the same flow later with platform-specific
-//! install paths and restart (`CreateProcess` + exit).
+//! Update check and self-update against GitHub Releases (Linux + Windows).
 
 use std::env;
 use std::path::{Path, PathBuf};
@@ -9,6 +6,8 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use color_eyre::eyre::{bail, eyre, Result, WrapErr};
+use sha2::{Digest, Sha256};
+use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
@@ -16,9 +15,17 @@ use tokio::time::timeout;
 use crate::action::Action;
 
 const REPO: &str = "EaeDave/ytui-dl";
-const BIN_NAME: &str = "ytui-dl";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const USER_AGENT: &str = "ytui-dl-update";
+
+/// Binary name on the current OS (`ytui-dl` / `ytui-dl.exe`).
+pub fn binary_name() -> &'static str {
+    if cfg!(windows) {
+        "ytui-dl.exe"
+    } else {
+        "ytui-dl"
+    }
+}
 
 /// Spawn a background task that reports a newer release tag, if any.
 pub fn spawn_check(tx: mpsc::UnboundedSender<Action>) {
@@ -75,7 +82,7 @@ pub async fn run_self_update(force: bool) -> Result<()> {
     let outcome = run_self_update_inner(force, |msg| println!("==> {msg}")).await?;
     if outcome.installed {
         println!("==> updated to v{}", outcome.version);
-        println!("==> run: ytui-dl --version");
+        println!("==> run: {} --version", binary_name());
     }
     Ok(())
 }
@@ -114,7 +121,7 @@ async fn run_self_update_inner(
     }
 
     let target = detect_target()?;
-    let asset = format!("{BIN_NAME}-{target}");
+    let asset = release_asset_name(&target);
     let url = format!("https://github.com/{REPO}/releases/download/{tag}/{asset}");
     let dest = install_destination()?;
 
@@ -123,7 +130,7 @@ async fn run_self_update_inner(
     tokio::fs::create_dir_all(&tmp_dir)
         .await
         .wrap_err("create temp dir")?;
-    let tmp_bin = tmp_dir.join(BIN_NAME);
+    let tmp_bin = tmp_dir.join(binary_name());
 
     download_file(&url, &tmp_bin).await?;
 
@@ -151,34 +158,7 @@ async fn run_self_update_inner(
     }
 
     progress(format!("installing to {}", dest.display()));
-    // Atomic-ish replace: write sibling then rename (Linux can replace a running binary).
-    let dest_tmp = dest.with_extension("new");
-    tokio::fs::copy(&tmp_bin, &dest_tmp)
-        .await
-        .wrap_err("copy binary into place")?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = tokio::fs::metadata(&dest_tmp).await?.permissions();
-        perms.set_mode(0o755);
-        tokio::fs::set_permissions(&dest_tmp, perms).await?;
-    }
-    tokio::fs::rename(&dest_tmp, &dest)
-        .await
-        .or_else(|_| {
-            std::fs::copy(&tmp_bin, &dest).map(|_| ()).and_then(|_| {
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::PermissionsExt;
-                    let mut perms = std::fs::metadata(&dest)?.permissions();
-                    perms.set_mode(0o755);
-                    std::fs::set_permissions(&dest, perms)?;
-                }
-                let _ = std::fs::remove_file(&dest_tmp);
-                Ok(())
-            })
-        })
-        .wrap_err_with(|| format!("install to {}", dest.display()))?;
+    install_binary(&tmp_bin, &dest).await?;
 
     let _ = tokio::fs::remove_dir_all(&tmp_dir).await;
     Ok(UpdateOutcome {
@@ -188,17 +168,85 @@ async fn run_self_update_inner(
     })
 }
 
+async fn install_binary(src: &Path, dest: &Path) -> Result<()> {
+    #[cfg(windows)]
+    {
+        // Windows: rename running .exe away, then put the new one in place.
+        let dest_old = dest.with_extension("exe.old");
+        let dest_tmp = dest.with_extension("exe.new");
+        let _ = tokio::fs::remove_file(&dest_tmp).await;
+        let _ = tokio::fs::remove_file(&dest_old).await;
+
+        tokio::fs::copy(src, &dest_tmp)
+            .await
+            .wrap_err("copy binary into place")?;
+
+        if dest.exists() {
+            // Renaming a running executable is usually allowed on Windows.
+            tokio::fs::rename(dest, &dest_old)
+                .await
+                .wrap_err_with(|| {
+                    format!(
+                        "could not replace running binary at {} (close ytui-dl and retry, or run: ytui-dl --update from a new shell)",
+                        dest.display()
+                    )
+                })?;
+        }
+
+        tokio::fs::rename(&dest_tmp, dest)
+            .await
+            .or_else(|_| {
+                std::fs::copy(src, dest).map(|_| ()).and_then(|_| {
+                    let _ = std::fs::remove_file(&dest_tmp);
+                    Ok(())
+                })
+            })
+            .wrap_err_with(|| format!("install to {}", dest.display()))?;
+
+        // Best-effort cleanup of previous binary
+        let _ = tokio::fs::remove_file(&dest_old).await;
+        return Ok(());
+    }
+
+    #[cfg(not(windows))]
+    {
+        // Unix: write sibling then rename (Linux can replace a running binary).
+        let dest_tmp = dest.with_extension("new");
+        tokio::fs::copy(src, &dest_tmp)
+            .await
+            .wrap_err("copy binary into place")?;
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = tokio::fs::metadata(&dest_tmp).await?.permissions();
+            perms.set_mode(0o755);
+            tokio::fs::set_permissions(&dest_tmp, perms).await?;
+        }
+        tokio::fs::rename(&dest_tmp, dest)
+            .await
+            .or_else(|_| {
+                std::fs::copy(src, dest).map(|_| ()).and_then(|_| {
+                    use std::os::unix::fs::PermissionsExt;
+                    let mut perms = std::fs::metadata(dest)?.permissions();
+                    perms.set_mode(0o755);
+                    std::fs::set_permissions(dest, perms)?;
+                    let _ = std::fs::remove_file(&dest_tmp);
+                    Ok(())
+                })
+            })
+            .wrap_err_with(|| format!("install to {}", dest.display()))?;
+        Ok(())
+    }
+}
+
 /// CLI entry: `ytui-dl --uninstall`
 ///
 /// Removes the installed binary (not config or downloads).
 pub fn run_uninstall() -> Result<()> {
     let mut removed = Vec::new();
-    let mut missing = Vec::new();
     let mut errors = Vec::new();
 
     for path in uninstall_candidates() {
         if !path.exists() {
-            missing.push(path);
             continue;
         }
         match std::fs::remove_file(&path) {
@@ -207,33 +255,49 @@ pub fn run_uninstall() -> Result<()> {
                 removed.push(path);
             }
             Err(e) => {
-                // On Linux, deleting the running binary usually works (unlink).
-                // Permission errors need sudo for system installs.
                 eprintln!("!!  could not remove {}: {e}", path.display());
                 errors.push((path, e));
             }
         }
     }
 
+    // Windows leftover from update
+    #[cfg(windows)]
+    {
+        let old = default_user_bin().join("ytui-dl.exe.old");
+        let _ = std::fs::remove_file(old);
+    }
+
     if removed.is_empty() && errors.is_empty() {
         println!("==> ytui-dl binary not found in common install locations");
-        println!("    checked: ~/.local/bin/ytui-dl, current executable, PATH");
+        println!(
+            "    checked: {}, current executable, PATH",
+            default_user_bin().join(binary_name()).display()
+        );
         return Ok(());
     }
 
     if !removed.is_empty() {
         println!("==> uninstalled binary ({} file(s))", removed.len());
-        println!("==> config (~/.config/ytui-dl) and downloads were not removed");
+        println!("==> config and downloads were not removed");
+        #[cfg(windows)]
+        println!("    config: %LOCALAPPDATA%\\ytui-dl  (or %APPDATA%\\ytui-dl)");
+        #[cfg(not(windows))]
+        println!("    config: ~/.config/ytui-dl");
     }
 
     if !errors.is_empty() {
         bail!(
-            "failed to remove {} path(s); try with sudo if installed system-wide",
-            errors.len()
+            "failed to remove {} path(s); close ytui-dl and retry{}",
+            errors.len(),
+            if cfg!(windows) {
+                ""
+            } else {
+                ", or use sudo for system-wide installs"
+            }
         );
     }
 
-    let _ = missing;
     Ok(())
 }
 
@@ -241,23 +305,31 @@ fn uninstall_candidates() -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
     if let Ok(exe) = env::current_exe() {
-        let exe = exe.canonicalize().unwrap_or(exe);
-        let in_target = exe.components().any(|c| c.as_os_str() == "target");
+        let exe = strip_deleted_marker(exe);
+        let exe = if exe.is_file() {
+            exe.canonicalize().unwrap_or(exe)
+        } else {
+            exe
+        };
+        let in_target = path_in_target(&exe);
         if !in_target {
-            paths.push(exe);
+            paths.push(if cfg!(windows) {
+                ensure_exe_name(exe)
+            } else {
+                exe
+            });
         }
     }
 
-    let local = default_user_bin().join(BIN_NAME);
+    let local = default_user_bin().join(binary_name());
     if !paths.iter().any(|p| p == &local) {
         paths.push(local);
     }
 
-    if let Ok(from_path) = which::which(BIN_NAME) {
-        let from_path = from_path.canonicalize().unwrap_or(from_path);
-        if !paths.iter().any(|p| p == &from_path) {
-            let in_target = from_path.components().any(|c| c.as_os_str() == "target");
-            if !in_target {
+    for name in [binary_name(), "ytui-dl"] {
+        if let Ok(from_path) = which::which(name) {
+            let from_path = from_path.canonicalize().unwrap_or(from_path);
+            if !path_in_target(&from_path) && !paths.iter().any(|p| p == &from_path) {
                 paths.push(from_path);
             }
         }
@@ -266,59 +338,65 @@ fn uninstall_candidates() -> Vec<PathBuf> {
     paths
 }
 
-/// Re-exec the updated binary.
+/// Re-exec / relaunch the updated binary.
 ///
 /// Prefer an explicit install path (from a successful update). Never trust a
 /// `current_exe()` that points at a deleted inode (`… (deleted)` on Linux).
 pub fn reexec_self(preferred: Option<PathBuf>) -> Result<()> {
+    let exe = preferred
+        .filter(|p| p.is_file())
+        .or_else(|| resolve_restart_path().ok())
+        .ok_or_else(|| eyre!("could not find ytui-dl binary to restart; run: {}", binary_name()))?;
+
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
-        let exe = preferred
-            .filter(|p| p.is_file())
-            .or_else(|| resolve_restart_path().ok())
-            .ok_or_else(|| {
-                eyre!("could not find ytui-dl binary to restart; run: ytui-dl")
-            })?;
-        let err = std::process::Command::new(&exe)
-            // Fresh TUI session — don't pass stale CLI flags.
-            .exec();
+        let err = std::process::Command::new(&exe).exec();
         bail!("failed to restart {}: {err}", exe.display());
     }
-    #[cfg(not(unix))]
+
+    #[cfg(windows)]
     {
-        let _ = preferred;
-        bail!("automatic restart is not supported on this platform yet; relaunch ytui-dl manually");
+        // Cannot exec() on Windows — spawn a new process and exit cleanly.
+        std::process::Command::new(&exe)
+            .spawn()
+            .wrap_err_with(|| format!("failed to launch {}", exe.display()))?;
+        std::process::exit(0);
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    {
+        bail!(
+            "automatic restart is not supported on this platform; relaunch {}",
+            binary_name()
+        );
     }
 }
 
 /// Path that exists on disk and should be used after self-update.
 pub fn resolve_restart_path() -> Result<PathBuf> {
-    // 1) User install location (install.sh / --update default)
-    let local = default_user_bin().join(BIN_NAME);
+    let local = default_user_bin().join(binary_name());
     if local.is_file() {
         return Ok(local);
     }
 
-    // 2) PATH lookup
-    if let Ok(from_path) = which::which(BIN_NAME) {
-        if from_path.is_file() {
-            return Ok(from_path);
+    for name in [binary_name(), "ytui-dl"] {
+        if let Ok(from_path) = which::which(name) {
+            if from_path.is_file() {
+                return Ok(from_path);
+            }
         }
     }
 
-    // 3) current_exe, but strip Linux "(deleted)" and require the file to exist
     if let Ok(exe) = env::current_exe() {
         let cleaned = strip_deleted_marker(exe);
         if cleaned.is_file() {
             return Ok(cleaned);
         }
-        // If the path is the logical install path but we raced, try local again
         if let Some(name) = cleaned.file_name().and_then(|n| n.to_str()) {
-            if name.starts_with(BIN_NAME) {
-                let parent = cleaned.parent().map(|p| p.to_path_buf());
-                if let Some(parent) = parent {
-                    let candidate = parent.join(BIN_NAME);
+            if name.starts_with("ytui-dl") {
+                if let Some(parent) = cleaned.parent() {
+                    let candidate = parent.join(binary_name());
                     if candidate.is_file() {
                         return Ok(candidate);
                     }
@@ -332,42 +410,52 @@ pub fn resolve_restart_path() -> Result<PathBuf> {
 
 /// Where to write the binary during update.
 fn install_destination() -> Result<PathBuf> {
+    let local = default_user_bin().join(binary_name());
+
     if let Ok(exe) = env::current_exe() {
         let cleaned = strip_deleted_marker(exe);
-        // Prefer canonicalize only when the path still exists.
         let exe = if cleaned.is_file() {
             cleaned.canonicalize().unwrap_or(cleaned)
         } else {
             cleaned
         };
+        let in_target = path_in_target(&exe);
+        if in_target {
+            return Ok(local);
+        }
+
         let name = exe
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("")
             .replace(" (deleted)", "");
-        let in_target = exe.components().any(|c| c.as_os_str() == "target");
-        let local = default_user_bin().join(BIN_NAME);
 
-        if in_target {
-            return Ok(local);
-        }
-        // Running from ~/.local/bin/ytui-dl (possibly already replaced / deleted inode)
-        if name.starts_with(BIN_NAME) {
-            // Use the clean path without "(deleted)" so rename targets the real location.
-            let dest = if exe.to_string_lossy().contains("(deleted)") {
-                strip_deleted_marker(exe)
-            } else {
-                exe
-            };
-            // Ensure we write to BIN_NAME not a weird name
-            if let Some(parent) = dest.parent() {
-                return Ok(parent.join(BIN_NAME));
+        if name.starts_with("ytui-dl") {
+            if let Some(parent) = exe.parent() {
+                return Ok(parent.join(binary_name()));
             }
-            return Ok(dest);
+            return Ok(ensure_exe_name(exe));
         }
-        return Ok(local);
     }
-    Ok(default_user_bin().join(BIN_NAME))
+    Ok(local)
+}
+
+fn path_in_target(path: &Path) -> bool {
+    path.components().any(|c| c.as_os_str() == "target")
+}
+
+fn ensure_exe_name(path: PathBuf) -> PathBuf {
+    if cfg!(windows) {
+        if path.extension().and_then(|e| e.to_str()) == Some("exe") {
+            path
+        } else if let Some(parent) = path.parent() {
+            parent.join(binary_name())
+        } else {
+            PathBuf::from(binary_name())
+        }
+    } else {
+        path
+    }
 }
 
 /// Linux marks replaced-in-place executables as `path (deleted)` via /proc/self/exe.
@@ -380,26 +468,53 @@ fn strip_deleted_marker(path: PathBuf) -> PathBuf {
     }
 }
 
-fn default_user_bin() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".local")
-        .join("bin")
+/// User-writable install directory for the binary.
+///
+/// - Linux/macOS: `~/.local/bin`
+/// - Windows: `%LOCALAPPDATA%\ytui-dl\bin`
+pub fn default_user_bin() -> PathBuf {
+    if cfg!(windows) {
+        dirs::data_local_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("ytui-dl")
+            .join("bin")
+    } else {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".local")
+            .join("bin")
+    }
 }
 
 fn detect_target() -> Result<String> {
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
-    // Focus: Linux now. Windows later (different asset triple + install dir).
-    if os != "linux" {
-        bail!("in-app update currently supports Linux only (detected {os})");
-    }
     let arch = match arch {
         "x86_64" => "x86_64",
         "aarch64" => "aarch64",
         other => bail!("unsupported architecture for prebuilt releases: {other}"),
     };
-    Ok(format!("{arch}-unknown-linux-gnu"))
+    match os {
+        "linux" => Ok(format!("{arch}-unknown-linux-gnu")),
+        "windows" => {
+            if arch != "x86_64" {
+                bail!("Windows prebuilt releases are currently x86_64 only");
+            }
+            Ok("x86_64-pc-windows-msvc".into())
+        }
+        "macos" => bail!(
+            "macOS prebuilt releases are not published yet; use: cargo install --git https://github.com/{REPO}"
+        ),
+        other => bail!("unsupported OS for prebuilt releases: {other}"),
+    }
+}
+
+fn release_asset_name(target: &str) -> String {
+    if target.contains("windows") {
+        format!("ytui-dl-{target}.exe")
+    } else {
+        format!("ytui-dl-{target}")
+    }
 }
 
 async fn fetch_latest_tag() -> Result<Option<String>, ()> {
@@ -407,7 +522,7 @@ async fn fetch_latest_tag() -> Result<Option<String>, ()> {
         .args([
             "-fsSLI",
             "-o",
-            "/dev/null",
+            if cfg!(windows) { "NUL" } else { "/dev/null" },
             "-w",
             "%{url_effective}",
             "-A",
@@ -438,7 +553,6 @@ async fn download_file(url: &str, dest: &Path) -> Result<()> {
     let mut last_err = String::new();
 
     for attempt in 1..=ATTEMPTS {
-        // --retry handles some transient errors; we also re-run the whole curl on hard fail.
         let status = Command::new("curl")
             .args([
                 "-fsSL",
@@ -462,7 +576,6 @@ async fn download_file(url: &str, dest: &Path) -> Result<()> {
             .wrap_err("run curl")?;
 
         if status.success() {
-            // Basic sanity: non-empty file
             let meta = tokio::fs::metadata(dest).await.wrap_err("stat download")?;
             if meta.len() > 0 {
                 return Ok(());
@@ -494,20 +607,17 @@ async fn verify_sha256(bin: &Path, sum_file: &Path) -> Result<()> {
         .ok_or_else(|| eyre!("empty checksum file"))?
         .to_lowercase();
 
-    let output = Command::new("sha256sum")
-        .arg(bin)
-        .output()
-        .await
-        .wrap_err("sha256sum")?;
-    if !output.status.success() {
-        bail!("sha256sum failed");
+    let mut file = tokio::fs::File::open(bin).await.wrap_err("open binary")?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        let n = file.read(&mut buf).await.wrap_err("read binary")?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
     }
-    let actual = String::from_utf8_lossy(&output.stdout);
-    let actual = actual
-        .split_whitespace()
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let actual = format!("{:x}", hasher.finalize());
     if actual != expected {
         bail!("SHA256 mismatch (expected {expected}, got {actual})");
     }
@@ -545,5 +655,17 @@ mod tests {
         assert!(!version_gt("0.1.0", "0.1.0"));
         assert!(!version_gt("0.1.0", "0.2.0"));
         assert!(version_gt("0.1.1", "0.1.0"));
+    }
+
+    #[test]
+    fn asset_names() {
+        assert_eq!(
+            release_asset_name("x86_64-unknown-linux-gnu"),
+            "ytui-dl-x86_64-unknown-linux-gnu"
+        );
+        assert_eq!(
+            release_asset_name("x86_64-pc-windows-msvc"),
+            "ytui-dl-x86_64-pc-windows-msvc.exe"
+        );
     }
 }

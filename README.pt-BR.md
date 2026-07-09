@@ -24,53 +24,49 @@ sudo apt install yt-dlp ffmpeg
 
 # macOS
 brew install yt-dlp ffmpeg
+
+# Windows (winget)
+winget install yt-dlp.yt-dlp Gyan.FFmpeg
+# ou: scoop install yt-dlp ffmpeg
 ```
 
-### 2. Instalar o binário (Linux)
+### 2. Instalar o binário
 
-Instala em **`~/.local/bin/ytui-dl`** e atualiza sozinho se houver release mais nova:
+#### Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+# → ~/.local/bin/ytui-dl
 ```
 
-Depois:
+#### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
+# → %LOCALAPPDATA%\ytui-dl\bin\ytui-dl.exe (+ PATH do usuário)
+```
+
+Use o [Windows Terminal](https://aka.ms/terminal) para a melhor experiência de TUI.
+
+#### Depois de instalar
 
 ```bash
 ytui-dl
+ytui-dl --version
 ```
 
-#### Atualizar / forçar / desinstalar
+#### Atualizar / desinstalar
 
 ```bash
-# Preferido depois da primeira instalação
 ytui-dl --update
-ytui-dl --update --force   # reinstala a mesma versão
-ytui-dl --uninstall        # remove o binário (mantém config e downloads)
-
-# Ou via script
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --force
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --check
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --uninstall
-
-# System-wide (pode pedir sudo)
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --system
-```
-
-Se `~/.local/bin` não estiver no `PATH`:
-
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # ou ~/.zshrc
+ytui-dl --update --force
+ytui-dl --uninstall
 ```
 
 ### Build a partir do código
 
 ```bash
 cargo install --git https://github.com/EaeDave/ytui-dl
-# ou
-git clone https://github.com/EaeDave/ytui-dl
-cd ytui-dl && cargo install --path .
 ```
 
 ## Uso

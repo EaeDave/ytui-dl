@@ -882,10 +882,6 @@ impl App {
         if self.update_busy {
             return;
         }
-        if cfg!(not(target_os = "linux")) {
-            self.status_message = self.t().status_update_linux_only.into();
-            return;
-        }
         if let Some(ver) = &self.update_available {
             let ver = ver.clone();
             self.update_confirm = true;
@@ -909,7 +905,10 @@ impl App {
 fn open_path(path: &std::path::Path) -> std::io::Result<()> {
     #[cfg(target_os = "windows")]
     {
-        std::process::Command::new("explorer").arg(path).spawn()?;
+        // `start` opens files with the default app; for folders it opens Explorer.
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", path])
+            .spawn()?;
         return Ok(());
     }
     #[cfg(target_os = "macos")]

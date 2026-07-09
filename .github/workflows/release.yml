@@ -14,15 +14,19 @@ env:
 jobs:
   build:
     name: Build ${{ matrix.target }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-          # aarch64 via cross (optional; enable when needed)
-          # - target: aarch64-unknown-linux-gnu
-          #   use_cross: true
+            os: ubuntu-latest
+            bin_name: ytui-dl
+            asset_name: ytui-dl-x86_64-unknown-linux-gnu
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            bin_name: ytui-dl.exe
+            asset_name: ytui-dl-x86_64-pc-windows-msvc.exe
 
     steps:
       - name: Checkout
@@ -41,23 +45,35 @@ jobs:
       - name: Build release
         run: cargo build --release --locked --target ${{ matrix.target }}
 
-      - name: Package binary
+      - name: Package binary (Unix)
+        if: runner.os != 'Windows'
         run: |
           set -euo pipefail
-          BIN_SRC="target/${{ matrix.target }}/release/ytui-dl"
-          ASSET="ytui-dl-${{ matrix.target }}"
+          BIN_SRC="target/${{ matrix.target }}/release/${{ matrix.bin_name }}"
+          ASSET="${{ matrix.asset_name }}"
           cp "$BIN_SRC" "$ASSET"
           chmod +x "$ASSET"
           strip "$ASSET" || true
           sha256sum "$ASSET" | tee "${ASSET}.sha256"
 
+      - name: Package binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $bin = "target/${{ matrix.target }}/release/${{ matrix.bin_name }}"
+          $asset = "${{ matrix.asset_name }}"
+          Copy-Item $bin $asset
+          $hash = (Get-FileHash -Algorithm SHA256 $asset).Hash.ToLower()
+          "$hash  $asset" | Out-File -Encoding ascii "${asset}.sha256"
+          Get-Content "${asset}.sha256"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ytui-dl-${{ matrix.target }}
+          name: ${{ matrix.asset_name }}
           path: |
-            ytui-dl-${{ matrix.target }}
-            ytui-dl-${{ matrix.target }}.sha256
+            ${{ matrix.asset_name }}
+            ${{ matrix.asset_name }}.sha256
 
   publish:
     name: Publish GitHub Release

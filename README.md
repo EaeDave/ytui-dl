@@ -24,44 +24,64 @@ sudo apt install yt-dlp ffmpeg
 
 # macOS
 brew install yt-dlp ffmpeg
+
+# Windows (winget)
+winget install yt-dlp.yt-dlp Gyan.FFmpeg
+# or: scoop install yt-dlp ffmpeg
 ```
 
-### 2. Install the binary (Linux)
+### 2. Install the binary
 
-Installs to **`~/.local/bin/ytui-dl`** and upgrades when a newer release exists:
+#### Linux
+
+Installs to **`~/.local/bin/ytui-dl`**:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
 ```
 
-Then:
+#### Windows (PowerShell)
+
+Installs to **`%LOCALAPPDATA%\ytui-dl\bin\ytui-dl.exe`** and adds that folder to your user `PATH`:
+
+```powershell
+irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
+```
+
+Use [Windows Terminal](https://aka.ms/terminal) for the best TUI experience.
+
+#### After install
 
 ```bash
 ytui-dl
+ytui-dl --version
 ```
 
-#### Update / force / uninstall
+#### Update / uninstall
 
 ```bash
-# Preferred after first install
+# Preferred after first install (Linux + Windows)
 ytui-dl --update
-ytui-dl --update --force   # reinstall same version
-ytui-dl --uninstall        # remove binary (keeps config & downloads)
+ytui-dl --update --force
+ytui-dl --uninstall        # binary only; keeps config & downloads
 
-# Or via install script
+# Linux install script alternatives
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --force
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --check
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --uninstall
+curl -fsSL ... | bash -s -- --uninstall
 
-# System-wide (may prompt for sudo)
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --system
+# Windows: re-run install.ps1, or:
+# ytui-dl --uninstall
 ```
 
-If `~/.local/bin` is not on your `PATH`:
+If the command is not found:
 
 ```bash
+# Linux
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # or ~/.zshrc
+```
+
+```powershell
+# Windows: open a new terminal after install.ps1 (PATH is updated for new sessions)
 ```
 
 ### Build from source
@@ -142,10 +162,11 @@ Default output: `~/Downloads/ytui-dl/` (or home if Downloads is missing).
 
 Official binaries: [GitHub Releases](https://github.com/EaeDave/ytui-dl/releases)
 
-Example assets:
-
-- `ytui-dl-x86_64-unknown-linux-gnu`
-- `*.sha256`
+| Asset | Platform |
+|-------|----------|
+| `ytui-dl-x86_64-unknown-linux-gnu` | Linux x86_64 |
+| `ytui-dl-x86_64-pc-windows-msvc.exe` | Windows x86_64 |
+| `*.sha256` | Checksums |
 
 ## Stack
 
