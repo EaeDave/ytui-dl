@@ -44,6 +44,8 @@ pub enum Action {
     },
     UpdateSucceeded {
         version: String,
+        /// Path of the freshly installed binary (for restart after Linux self-replace).
+        install_path: Option<std::path::PathBuf>,
     },
     UpdateFailed {
         error: String,

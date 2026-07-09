@@ -116,11 +116,12 @@ async fn main() -> Result<()> {
     }
 
     let should_restart = app.should_restart;
+    let restart_path = app.restart_path.clone();
     tui.exit()?;
 
     if should_restart {
-        // Linux: re-exec the (updated) binary. Clean TUI teardown already done.
-        if let Err(e) = updater::reexec_self() {
+        // Linux: re-exec the updated binary path (not current_exe if marked deleted).
+        if let Err(e) = updater::reexec_self(restart_path) {
             eprintln!("error: could not restart: {e:#}");
             eprintln!("launch manually: ytui-dl");
             std::process::exit(1);

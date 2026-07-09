@@ -52,6 +52,8 @@ pub struct App {
     pub update_ready_restart: bool,
     /// After clean TUI exit, re-exec the binary.
     pub should_restart: bool,
+    /// Preferred binary path for restart (avoids Linux `(deleted)` current_exe).
+    pub restart_path: Option<PathBuf>,
 }
 
 impl App {
@@ -117,6 +119,7 @@ impl App {
             update_busy: false,
             update_ready_restart: false,
             should_restart: false,
+            restart_path: None,
         }
     }
 
@@ -241,11 +244,17 @@ impl App {
             Action::UpdateProgress { message } => {
                 self.status_message = format!("↑ {message}");
             }
-            Action::UpdateSucceeded { version } => {
+            Action::UpdateSucceeded {
+                version,
+                install_path,
+            } => {
                 self.update_busy = false;
                 self.update_confirm = false;
                 self.update_ready_restart = true;
                 self.update_available = None;
+                self.restart_path = install_path
+                    .filter(|p| p.is_file())
+                    .or_else(|| crate::updater::resolve_restart_path().ok());
                 self.status_message = self.lang().msg_update_done(&version);
             }
             Action::UpdateFailed { error } => {

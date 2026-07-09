@@ -48,14 +48,10 @@ pub fn spawn_tui_update(tx: mpsc::UnboundedSender<Action>) {
         };
 
         match run_self_update_inner(false, report).await {
-            Ok(outcome) if outcome.installed => {
-                let _ = tx.send(Action::UpdateSucceeded {
-                    version: outcome.version,
-                });
-            }
             Ok(outcome) => {
                 let _ = tx.send(Action::UpdateSucceeded {
                     version: outcome.version,
+                    install_path: outcome.install_path,
                 });
             }
             Err(e) => {
@@ -70,6 +66,8 @@ pub fn spawn_tui_update(tx: mpsc::UnboundedSender<Action>) {
 struct UpdateOutcome {
     version: String,
     installed: bool,
+    /// Absolute path where the binary was installed (for restart after self-replace).
+    install_path: Option<PathBuf>,
 }
 
 /// CLI entry: `ytui-dl --update`
@@ -110,6 +108,7 @@ async fn run_self_update_inner(
             return Ok(UpdateOutcome {
                 version: CURRENT_VERSION.to_string(),
                 installed: false,
+                install_path: resolve_restart_path().ok(),
             });
         }
     }
@@ -185,6 +184,7 @@ async fn run_self_update_inner(
     Ok(UpdateOutcome {
         version: remote,
         installed: true,
+        install_path: Some(dest),
     })
 }
 
@@ -266,42 +266,118 @@ fn uninstall_candidates() -> Vec<PathBuf> {
     paths
 }
 
-/// Re-exec this process with the (possibly updated) binary. Linux/unix.
-pub fn reexec_self() -> Result<()> {
+/// Re-exec the updated binary.
+///
+/// Prefer an explicit install path (from a successful update). Never trust a
+/// `current_exe()` that points at a deleted inode (`… (deleted)` on Linux).
+pub fn reexec_self(preferred: Option<PathBuf>) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
-        let exe = env::current_exe().wrap_err("resolve current executable")?;
-        let err = std::process::Command::new(&exe).args(std::env::args().skip(1)).exec();
+        let exe = preferred
+            .filter(|p| p.is_file())
+            .or_else(|| resolve_restart_path().ok())
+            .ok_or_else(|| {
+                eyre!("could not find ytui-dl binary to restart; run: ytui-dl")
+            })?;
+        let err = std::process::Command::new(&exe)
+            // Fresh TUI session — don't pass stale CLI flags.
+            .exec();
         bail!("failed to restart {}: {err}", exe.display());
     }
     #[cfg(not(unix))]
     {
+        let _ = preferred;
         bail!("automatic restart is not supported on this platform yet; relaunch ytui-dl manually");
     }
 }
 
+/// Path that exists on disk and should be used after self-update.
+pub fn resolve_restart_path() -> Result<PathBuf> {
+    // 1) User install location (install.sh / --update default)
+    let local = default_user_bin().join(BIN_NAME);
+    if local.is_file() {
+        return Ok(local);
+    }
+
+    // 2) PATH lookup
+    if let Ok(from_path) = which::which(BIN_NAME) {
+        if from_path.is_file() {
+            return Ok(from_path);
+        }
+    }
+
+    // 3) current_exe, but strip Linux "(deleted)" and require the file to exist
+    if let Ok(exe) = env::current_exe() {
+        let cleaned = strip_deleted_marker(exe);
+        if cleaned.is_file() {
+            return Ok(cleaned);
+        }
+        // If the path is the logical install path but we raced, try local again
+        if let Some(name) = cleaned.file_name().and_then(|n| n.to_str()) {
+            if name.starts_with(BIN_NAME) {
+                let parent = cleaned.parent().map(|p| p.to_path_buf());
+                if let Some(parent) = parent {
+                    let candidate = parent.join(BIN_NAME);
+                    if candidate.is_file() {
+                        return Ok(candidate);
+                    }
+                }
+            }
+        }
+    }
+
+    bail!("ytui-dl binary not found for restart")
+}
+
+/// Where to write the binary during update.
 fn install_destination() -> Result<PathBuf> {
     if let Ok(exe) = env::current_exe() {
-        let exe = exe.canonicalize().unwrap_or(exe);
+        let cleaned = strip_deleted_marker(exe);
+        // Prefer canonicalize only when the path still exists.
+        let exe = if cleaned.is_file() {
+            cleaned.canonicalize().unwrap_or(cleaned)
+        } else {
+            cleaned
+        };
         let name = exe
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or("");
+            .unwrap_or("")
+            .replace(" (deleted)", "");
         let in_target = exe.components().any(|c| c.as_os_str() == "target");
-        if name.starts_with(BIN_NAME) && !in_target {
-            return Ok(exe);
-        }
         let local = default_user_bin().join(BIN_NAME);
+
         if in_target {
             return Ok(local);
         }
+        // Running from ~/.local/bin/ytui-dl (possibly already replaced / deleted inode)
         if name.starts_with(BIN_NAME) {
-            return Ok(exe);
+            // Use the clean path without "(deleted)" so rename targets the real location.
+            let dest = if exe.to_string_lossy().contains("(deleted)") {
+                strip_deleted_marker(exe)
+            } else {
+                exe
+            };
+            // Ensure we write to BIN_NAME not a weird name
+            if let Some(parent) = dest.parent() {
+                return Ok(parent.join(BIN_NAME));
+            }
+            return Ok(dest);
         }
         return Ok(local);
     }
     Ok(default_user_bin().join(BIN_NAME))
+}
+
+/// Linux marks replaced-in-place executables as `path (deleted)` via /proc/self/exe.
+fn strip_deleted_marker(path: PathBuf) -> PathBuf {
+    let s = path.to_string_lossy();
+    if let Some(clean) = s.strip_suffix(" (deleted)") {
+        PathBuf::from(clean)
+    } else {
+        path
+    }
 }
 
 fn default_user_bin() -> PathBuf {
