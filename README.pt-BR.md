@@ -41,12 +41,20 @@ curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | b
 
 #### Windows (PowerShell)
 
+Instala em **`%LOCALAPPDATA%\ytui-dl\bin`**, coloca no PATH e pode instalar **yt-dlp / ffmpeg** via winget (pergunta Y/n):
+
 ```powershell
-irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
-# → %LOCALAPPDATA%\ytui-dl\bin\ytui-dl.exe (+ PATH do usuário)
+# Recomendado (não fecha a janela se der erro):
+powershell -NoExit -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex"
 ```
 
-Use o [Windows Terminal](https://aka.ms/terminal) para a melhor experiência de TUI.
+Ou forma curta:
+
+```powershell
+irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
+```
+
+Use o [Windows Terminal](https://aka.ms/terminal).
 
 #### Depois de instalar
 

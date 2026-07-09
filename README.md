@@ -42,7 +42,14 @@ curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | b
 
 #### Windows (PowerShell)
 
-Installs to **`%LOCALAPPDATA%\ytui-dl\bin\ytui-dl.exe`** and adds that folder to your user `PATH`:
+Installs to **`%LOCALAPPDATA%\ytui-dl\bin\ytui-dl.exe`**, adds that folder to your user `PATH`, and can install **yt-dlp / ffmpeg** via winget (asks Y/n):
+
+```powershell
+# Recommended (window stays open on errors):
+powershell -NoExit -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex"
+```
+
+Or short form:
 
 ```powershell
 irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex

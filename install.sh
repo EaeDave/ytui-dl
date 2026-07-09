@@ -36,6 +36,7 @@ Options:
   --force         Reinstall even if the same version is already installed
   --uninstall     Remove ytui-dl from the install location
   --check         Show installed vs latest remote version
+  --skip-deps     Do not offer to install yt-dlp / ffmpeg
   -h, --help      Show this help
 
 Examples:
