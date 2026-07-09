@@ -23,9 +23,10 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_url(frame: &mut Frame, area: Rect, app: &App) {
+    let t = app.t();
     let focused = app.focus == Focus::UrlInput;
     let border = if focused { Color::Cyan } else { Color::Gray };
-    let block = title_block("URL do YouTube").border_style(Style::default().fg(border));
+    let block = title_block(t.url_title).border_style(Style::default().fg(border));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -48,7 +49,8 @@ fn draw_url(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_options(frame: &mut Frame, area: Rect, app: &App) {
-    let block = title_block("Opções");
+    let t = app.t();
+    let block = title_block(t.options_title);
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -66,56 +68,55 @@ fn draw_options(frame: &mut Frame, area: Rect, app: &App) {
     let confirm_focus = app.focus == Focus::Confirm;
 
     let mode_line = Line::from(vec![
-        Span::styled("Modo:      ", focused_style(mode_focus)),
-        pill("Vídeo", app.mode == crate::models::MediaMode::Video, mode_focus),
+        Span::styled(t.mode_label, focused_style(mode_focus)),
+        pill(
+            t.mode_video,
+            app.mode == crate::models::MediaMode::Video,
+            mode_focus,
+        ),
         Span::raw("  "),
-        pill("Áudio", app.mode == crate::models::MediaMode::Audio, mode_focus),
-        Span::styled("   (v/a ou ←/→)", Style::default().fg(Color::DarkGray)),
+        pill(
+            t.mode_audio,
+            app.mode == crate::models::MediaMode::Audio,
+            mode_focus,
+        ),
+        Span::styled(t.mode_hint, Style::default().fg(Color::DarkGray)),
     ]);
     frame.render_widget(Paragraph::new(mode_line), rows[0]);
 
-    let mut quality_spans = vec![Span::styled(
-        "Qualidade: ",
-        focused_style(quality_focus),
-    )];
+    let mut quality_spans = vec![Span::styled(t.quality_label, focused_style(quality_focus))];
     for (i, q) in QualityPreset::ALL.iter().enumerate() {
         if i > 0 {
             quality_spans.push(Span::raw(" "));
         }
-        quality_spans.push(pill(q.label(), app.quality == *q, quality_focus));
+        quality_spans.push(pill(q.label(t), app.quality == *q, quality_focus));
     }
     quality_spans.push(Span::styled(
-        "   (1-5)",
+        t.quality_hint,
         Style::default().fg(Color::DarkGray),
     ));
     frame.render_widget(Paragraph::new(Line::from(quality_spans)), rows[1]);
 
-    let mut audio_spans = vec![Span::styled(
-        "Áudio:     ",
-        focused_style(audio_focus),
-    )];
+    let mut audio_spans = vec![Span::styled(t.audio_label, focused_style(audio_focus))];
     for (i, f) in crate::models::AudioFormat::ALL.iter().enumerate() {
         if i > 0 {
             audio_spans.push(Span::raw(" "));
         }
-        audio_spans.push(pill(f.label(), app.audio_format == *f, audio_focus));
+        audio_spans.push(pill(f.label(t), app.audio_format == *f, audio_focus));
     }
     frame.render_widget(Paragraph::new(Line::from(audio_spans)), rows[2]);
 
-    let out = format!("Saída:     {}", app.config.output_dir.display());
+    let out = format!("{}{}", t.output_label, app.config.output_dir.display());
     let confirm = if confirm_focus {
         Span::styled(
-            "  ▶  Enter para buscar / baixar",
+            t.enter_search_focus,
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )
     } else {
-        Span::styled(
-            "  Enter para buscar informações do vídeo",
-            Style::default().fg(Color::DarkGray),
-        )
+        Span::styled(t.enter_search, Style::default().fg(Color::DarkGray))
     };
     frame.render_widget(
         Paragraph::new(Line::from(vec![
@@ -127,16 +128,17 @@ fn draw_options(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_hint_panel(frame: &mut Frame, area: Rect, app: &App) {
+    let t = app.t();
     let mut lines = vec![
         Line::from(Span::styled(
-            "Como usar",
+            t.how_to,
             Style::default()
                 .fg(Color::Magenta)
                 .add_modifier(Modifier::BOLD),
         )),
-        Line::from("1. Cole a URL (Ctrl+Shift+V / paste do terminal)"),
-        Line::from("2. Escolha Vídeo ou Áudio e a qualidade"),
-        Line::from("3. Enter → preview → Enter de novo para baixar"),
+        Line::from(t.how_step1),
+        Line::from(t.how_step2),
+        Line::from(t.how_step3),
         Line::from(""),
     ];
 
@@ -147,12 +149,12 @@ fn draw_hint_panel(frame: &mut Frame, area: Rect, app: &App) {
         )));
     } else {
         lines.push(Line::from(Span::styled(
-            "✓ yt-dlp detectado",
+            t.ytdlp_ok,
             Style::default().fg(Color::Green),
         )));
-        if app.tools.as_ref().is_some_and(|t| t.has_ffmpeg()) {
+        if app.tools.as_ref().is_some_and(|tool| tool.has_ffmpeg()) {
             lines.push(Line::from(Span::styled(
-                "✓ ffmpeg detectado",
+                t.ffmpeg_ok,
                 Style::default().fg(Color::Green),
             )));
         }
@@ -161,7 +163,7 @@ fn draw_hint_panel(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(
         Paragraph::new(lines)
             .wrap(Wrap { trim: true })
-            .block(title_block("Guia rápido")),
+            .block(title_block(t.guide_title)),
         area,
     );
 }
@@ -188,7 +190,6 @@ fn input_scroll(input: &Input, width: u16) -> u16 {
     cursor.saturating_sub(width.saturating_sub(1))
 }
 
-/// Clear helper kept for modal overlays.
 #[allow(dead_code)]
 pub fn clear(frame: &mut Frame, area: Rect) {
     frame.render_widget(Clear, area);

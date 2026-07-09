@@ -4,43 +4,44 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 use ratatui::Frame;
 
+use crate::app::App;
 use crate::ui::widgets::title_block;
 
-pub fn draw(frame: &mut Frame, area: Rect) {
-    // Centered modal
+pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
+    let t = app.t();
     let popup = centered_rect(70, 80, area);
     frame.render_widget(Clear, popup);
 
     let lines = vec![
         Line::from(Span::styled(
-            "Atalhos",
+            t.help_shortcuts,
             Style::default()
                 .fg(Color::Magenta)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
-        section("Navegação"),
-        key("h", "Tela inicial"),
-        key("f", "Fila de downloads"),
-        key("s", "Configurações"),
-        key("?", "Esta ajuda"),
-        key("Esc", "Voltar / fechar"),
-        key("q", "Sair (Q força saída com download ativo)"),
+        section(t.help_nav),
+        key("h", t.help_home),
+        key("f", t.help_queue),
+        key("s", t.help_settings),
+        key("?", t.help_this),
+        key("Esc", t.help_esc),
+        key("q", t.help_quit),
         Line::from(""),
-        section("Download"),
-        key("Enter", "Buscar metadata / confirmar download"),
-        key("v / a", "Modo vídeo / áudio"),
-        key("m", "Alternar modo (preview)"),
-        key("1-5", "Presets de qualidade (Melhor…Pior)"),
-        key("p", "Cancelar download ativo"),
-        key("o", "Abrir pasta de saída"),
+        section(t.help_download),
+        key("Enter", t.help_enter),
+        key("v / a", t.help_va),
+        key("m", t.help_m),
+        key("1-5", t.help_quality),
+        key("p", t.help_cancel),
+        key("o", t.help_open),
         Line::from(""),
-        section("Fila"),
-        key("j / k", "Navegar itens"),
-        key("c", "Limpar itens finalizados"),
+        section(t.help_queue_section),
+        key("j / k", t.help_jk),
+        key("c", t.help_clear),
         Line::from(""),
         Line::from(Span::styled(
-            "ytui-dl  ·  powered by yt-dlp  ·  Ratatui",
+            t.help_footer,
             Style::default().fg(Color::DarkGray),
         )),
     ];
@@ -48,7 +49,7 @@ pub fn draw(frame: &mut Frame, area: Rect) {
     frame.render_widget(
         Paragraph::new(lines)
             .wrap(Wrap { trim: false })
-            .block(title_block("Ajuda")),
+            .block(title_block(t.help_title)),
         popup,
     );
 }

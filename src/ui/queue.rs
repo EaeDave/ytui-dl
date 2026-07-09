@@ -9,13 +9,14 @@ use crate::models::JobStatus;
 use crate::ui::widgets::title_block;
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
+    let t = app.t();
     let chunks = Layout::vertical([Constraint::Min(5), Constraint::Length(4)]).split(area);
 
     if app.jobs.is_empty() {
         frame.render_widget(
-            Paragraph::new("Fila vazia. Busque um vídeo na tela inicial e confirme o download.")
+            Paragraph::new(t.queue_empty)
                 .style(Style::default().fg(Color::DarkGray))
-                .block(title_block("Fila de downloads")),
+                .block(title_block(t.queue_title)),
             chunks[0],
         );
     } else {
@@ -34,11 +35,11 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
 
                 let marker = if selected { "▸ " } else { "  " };
                 let title = truncate(job.display_title(), 48);
-                let mode = job.mode.label();
+                let mode = job.mode.label(t);
                 let line = Line::from(vec![
                     Span::raw(marker),
                     Span::styled(
-                        format!("[{}] ", job.status.label()),
+                        format!("[{}] ", job.status.label(t)),
                         Style::default().fg(status_color),
                     ),
                     Span::styled(
@@ -61,30 +62,26 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
             .collect();
 
         frame.render_widget(
-            List::new(items).block(title_block("Fila de downloads")),
+            List::new(items).block(title_block(t.queue_title)),
             chunks[0],
         );
     }
 
-    // Detail / progress for selected job
     if let Some(job) = app.jobs.get(app.queue_selected) {
         let ratio = (job.progress / 100.0).clamp(0.0, 1.0);
         let label = match job.status {
             JobStatus::Downloading => {
                 let speed = job.speed.as_deref().unwrap_or("—");
                 let eta = job.eta.as_deref().unwrap_or("—");
-                format!(
-                    "{:.1}%  ·  {speed}  ·  ETA {eta}",
-                    job.progress
-                )
+                format!("{:.1}%  ·  {speed}  ·  ETA {eta}", job.progress)
             }
-            JobStatus::Done => "Concluído".into(),
+            JobStatus::Done => t.status_done.into(),
             JobStatus::Failed => job
                 .error
                 .clone()
-                .unwrap_or_else(|| "Falhou".into()),
-            JobStatus::Cancelled => "Cancelado".into(),
-            other => other.label().into(),
+                .unwrap_or_else(|| t.status_failed.into()),
+            JobStatus::Cancelled => t.status_cancelled.into(),
+            other => other.label(t).into(),
         };
 
         let gauge_color = match job.status {
@@ -94,7 +91,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         };
 
         let gauge = Gauge::default()
-            .block(title_block("Progresso do item selecionado"))
+            .block(title_block(t.progress_selected))
             .gauge_style(
                 Style::default()
                     .fg(gauge_color)
@@ -107,7 +104,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         frame.render_widget(gauge, chunks[1]);
     } else {
         frame.render_widget(
-            Paragraph::new("").block(title_block("Progresso")),
+            Paragraph::new("").block(title_block(t.progress_title)),
             chunks[1],
         );
     }
@@ -118,7 +115,7 @@ fn truncate(s: &str, max: usize) -> String {
     if count <= max {
         s.to_string()
     } else {
-        let t: String = s.chars().take(max.saturating_sub(1)).collect();
-        format!("{t}…")
+        let take: String = s.chars().take(max.saturating_sub(1)).collect();
+        format!("{take}…")
     }
 }

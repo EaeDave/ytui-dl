@@ -44,7 +44,12 @@ impl EventHandler {
                                 }
                             }
                             Some(Err(_)) => {
-                                let _ = tx.send(Action::Status("erro de leitura do terminal".into()));
+                                let _ = tx.send(Action::Status(
+                                    crate::i18n::Language::En
+                                        .strings()
+                                        .status_term_read_error
+                                        .into(),
+                                ));
                             }
                             None => break,
                         }

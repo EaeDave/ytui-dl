@@ -1,17 +1,19 @@
 # ytui-dl
 
-**YouTube no terminal.** TUI em Rust para baixar vídeos e áudios do YouTube.
+**YouTube in the terminal.** A Rust TUI for downloading YouTube videos and audio.
 
-Backend: **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** · Interface: **[Ratatui](https://ratatui.rs/)**
+Backend: **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** · UI: **[Ratatui](https://ratatui.rs/)**
 
-## Instalação rápida
+> 🇧🇷 Documentação em português: [README.pt-BR.md](./README.pt-BR.md)
 
-### 1. Dependências de runtime
+## Quick install
 
-| Ferramenta | Obrigatório | Função |
-|------------|-------------|--------|
-| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | **Sim** | Extrair e baixar mídia do YouTube |
-| [ffmpeg](https://ffmpeg.org/) | Recomendado | Merge vídeo+áudio e conversão de áudio |
+### 1. Runtime dependencies
+
+| Tool | Required | Role |
+|------|----------|------|
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | **Yes** | Extract and download media |
+| [ffmpeg](https://ffmpeg.org/) | Recommended | Merge streams / convert audio |
 
 ```bash
 # Arch
@@ -24,110 +26,119 @@ sudo apt install yt-dlp ffmpeg
 brew install yt-dlp ffmpeg
 ```
 
-### 2. Instalar o binário (Linux)
+### 2. Install the binary (Linux)
 
-O script instala em **`~/.local/bin/ytui-dl`** (no PATH do usuário) e **atualiza sozinho** se existir release mais nova:
+Installs to **`~/.local/bin/ytui-dl`** and upgrades when a newer release exists:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
 ```
 
-Depois:
+Then:
 
 ```bash
 ytui-dl
 ```
 
-#### Atualizar / forçar / desinstalar
+#### Update / force / uninstall
 
 ```bash
-# Atualiza se houver release mais recente (padrão)
+# Update if a newer release is available (default)
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
 
-# Reinstala mesmo na mesma versão
+# Reinstall even on the same version
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --force
 
-# Ver instalado vs remote
+# Installed vs remote
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --check
 
-# Remover do PATH de instalação
+# Remove binary
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --uninstall
 
-# Instalação system-wide (pode pedir sudo)
+# System-wide (may prompt for sudo)
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --system
 ```
 
-Se `~/.local/bin` não estiver no PATH, o script avisa. No bash/zsh:
+If `~/.local/bin` is not on your `PATH`:
 
 ```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-# ou ~/.zshrc
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # or ~/.zshrc
 ```
 
-### Build a partir do código
+### Build from source
 
 ```bash
 cargo install --git https://github.com/EaeDave/ytui-dl
-# ou
+# or
 git clone https://github.com/EaeDave/ytui-dl
 cd ytui-dl && cargo install --path .
 ```
 
-## Uso
+## Usage
 
-1. Cole a URL do YouTube no campo principal.
-2. Escolha **Vídeo** ou **Áudio** (`v` / `a`) e a qualidade (`1`–`5`).
-3. `Enter` busca os metadados (título, canal, duração).
-4. No preview, `Enter` adiciona à fila e inicia o download.
-5. Acompanhe o progresso em **Fila** (`f`).
+1. Paste a YouTube URL on the home screen.
+2. Choose **Video** or **Audio** (`v` / `a`) and quality (`1`–`5`).
+3. `Enter` fetches metadata (title, channel, duration).
+4. On preview, `Enter` enqueues and starts the download.
+5. Track progress in **Queue** (`f`).
 
-### Atalhos principais
+### Language
 
-| Tecla | Ação |
-|-------|------|
-| `Enter` | Buscar / confirmar download |
-| `v` / `a` | Modo vídeo / áudio |
-| `←` / `→` | Alternar qualidade ou formato de áudio |
-| `1`–`5` | Qualidade (Melhor → Pior) |
-| `f` | Fila |
-| `s` | Configurações |
-| `p` | Cancelar download ativo |
-| `o` | Abrir pasta de saída |
-| `?` | Ajuda |
-| `q` | Sair |
+UI defaults to **English**. Change to **Português (BR)** in **Settings** (`s`) → Language (`←`/`→` or `Enter`), then save.
 
-## Configuração
-
-Arquivo: `~/.config/ytui-dl/config.toml`
+Also stored in `~/.config/ytui-dl/config.toml`:
 
 ```toml
-output_dir = "/home/voce/Downloads/ytui-dl"
+language = "en"    # or "pt-BR"
+```
+
+### Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Enter` | Fetch / confirm download |
+| `v` / `a` | Video / audio mode |
+| `←` / `→` | Cycle quality or audio format |
+| `1`–`5` | Quality presets (Best → Worst) |
+| `f` | Queue |
+| `s` | Settings |
+| `p` | Cancel active download |
+| `o` | Open output folder |
+| `?` | Help |
+| `q` | Quit |
+
+## Configuration
+
+File: `~/.config/ytui-dl/config.toml`
+
+```toml
+output_dir = "/home/you/Downloads/ytui-dl"
 output_template = "%(title)s [%(id)s].%(ext)s"
 default_mode = "video"
 default_quality = "best"
 default_audio_format = "m4a"
+language = "en"
 ```
 
-Padrão de saída: `~/Downloads/ytui-dl/` (ou home se Downloads não existir).
+Default output: `~/Downloads/ytui-dl/` (or home if Downloads is missing).
 
 ## Releases
 
-Binários oficiais: [GitHub Releases](https://github.com/EaeDave/ytui-dl/releases)
+Official binaries: [GitHub Releases](https://github.com/EaeDave/ytui-dl/releases)
 
-Assets por arquitetura, por exemplo:
+Example assets:
 
 - `ytui-dl-x86_64-unknown-linux-gnu`
-- `ytui-dl-aarch64-unknown-linux-gnu`
-- `*.sha256` (checksums)
+- `*.sha256`
 
 ## Stack
 
 - **ratatui** + **crossterm** — TUI
-- **tokio** — runtime async e subprocessos
-- **tui-input** — campo de texto
-- **serde / toml / serde_json** — config e metadata yt-dlp
-- **yt-dlp** + **ffmpeg** — download real (externos)
+- **tokio** — async runtime and subprocesses
+- **tui-input** — text input
+- **serde / toml / serde_json** — config and yt-dlp metadata
+- **yt-dlp** + **ffmpeg** — actual download (external)
 
-## Licença
+## License
 
 MIT

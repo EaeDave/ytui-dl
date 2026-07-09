@@ -25,7 +25,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
         Screen::Help => {
             // Draw previous context-ish empty home under modal
             home::draw(frame, chunks[1], app);
-            help::draw(frame, area);
+            help::draw(frame, area, app);
         }
     }
 

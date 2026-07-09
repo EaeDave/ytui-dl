@@ -6,19 +6,19 @@ pub type Result<T> = std::result::Result<T, AppError>;
 
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("yt-dlp não encontrado no PATH. Instale com: pacman -S yt-dlp | apt install yt-dlp | brew install yt-dlp")]
+    #[error("yt-dlp not found in PATH. Install with: pacman -S yt-dlp | apt install yt-dlp | brew install yt-dlp")]
     YtDlpNotFound,
 
-    #[error("falha ao executar yt-dlp: {0}")]
+    #[error("failed to run yt-dlp: {0}")]
     YtDlpExec(String),
 
-    #[error("yt-dlp retornou erro: {0}")]
+    #[error("yt-dlp error: {0}")]
     YtDlpFailed(String),
 
-    #[error("não foi possível parsear metadata JSON: {0}")]
+    #[error("could not parse metadata JSON: {0}")]
     MetadataParse(String),
 
-    #[error("URL inválida ou vazia")]
+    #[error("invalid or empty URL")]
     InvalidUrl,
 
     #[error("IO: {0}")]
@@ -27,6 +27,6 @@ pub enum AppError {
     #[error("config: {0}")]
     Config(String),
 
-    #[error("caminho inválido: {0}")]
+    #[error("invalid path: {0}")]
     InvalidPath(PathBuf),
 }

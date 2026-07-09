@@ -4,6 +4,7 @@ mod config;
 mod downloader;
 mod error;
 mod event;
+mod i18n;
 mod models;
 mod tui;
 mod ui;

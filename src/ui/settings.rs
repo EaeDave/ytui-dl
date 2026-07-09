@@ -6,11 +6,14 @@ use ratatui::Frame;
 use tui_input::Input;
 
 use crate::app::App;
+use crate::i18n::Language;
 use crate::models::Focus;
-use crate::ui::widgets::title_block;
+use crate::ui::widgets::{focused_style, title_block};
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
+    let t = app.t();
     let chunks = Layout::vertical([
+        Constraint::Length(3),
         Constraint::Length(3),
         Constraint::Length(3),
         Constraint::Min(4),
@@ -20,39 +23,77 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     draw_field(
         frame,
         chunks[0],
-        "Pasta de saída",
+        t.settings_output,
         &app.settings_output_input,
         app.focus == Focus::SettingsOutput,
     );
     draw_field(
         frame,
         chunks[1],
-        "Template do nome do arquivo (yt-dlp)",
+        t.settings_template,
         &app.settings_template_input,
         app.focus == Focus::SettingsTemplate,
     );
+    draw_language(frame, chunks[2], app);
 
     let help = vec![
         Line::from(Span::styled(
-            "Dicas",
+            t.settings_tips,
             Style::default()
                 .fg(Color::Magenta)
                 .add_modifier(Modifier::BOLD),
         )),
-        Line::from("• Template usa placeholders do yt-dlp: %(title)s %(id)s %(ext)s …"),
-        Line::from("• Os defaults de modo/qualidade atuais também são salvos ao pressionar Enter"),
-        Line::from("• Arquivo: ~/.config/ytui-dl/config.toml"),
+        Line::from(t.settings_tip_template),
+        Line::from(t.settings_tip_defaults),
+        Line::from(t.settings_tip_file),
+        Line::from(t.settings_tip_language),
         Line::from(""),
         Line::from(Span::styled(
-            "Enter = salvar   Esc = cancelar   Tab = trocar campo",
+            t.settings_keys,
             Style::default().fg(Color::Cyan),
         )),
     ];
 
     frame.render_widget(
-        Paragraph::new(help).block(title_block("Configurações")),
-        chunks[2],
+        Paragraph::new(help).block(title_block(t.settings_title)),
+        chunks[3],
     );
+}
+
+fn draw_language(frame: &mut Frame, area: Rect, app: &App) {
+    let t = app.t();
+    let focused = app.focus == Focus::SettingsLanguage;
+    let border = if focused { Color::Cyan } else { Color::Gray };
+    let block = title_block(t.settings_language).border_style(Style::default().fg(border));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let mut spans = vec![Span::styled(
+        format!("{}:  ", t.settings_language),
+        focused_style(focused),
+    )];
+    for (i, lang) in Language::ALL.iter().enumerate() {
+        if i > 0 {
+            spans.push(Span::raw("  "));
+        }
+        let active = app.config.language == *lang;
+        let text = format!(" {} ", lang.native_label());
+        let style = if active {
+            Style::default()
+                .fg(Color::Black)
+                .bg(if focused { Color::Cyan } else { Color::Green })
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+        spans.push(Span::styled(text, style));
+    }
+    spans.push(Span::styled(
+        "   (←/→)",
+        Style::default().fg(Color::DarkGray),
+    ));
+
+    frame.render_widget(Paragraph::new(Line::from(spans)), inner);
 }
 
 fn draw_field(frame: &mut Frame, area: Rect, title: &str, input: &Input, focused: bool) {

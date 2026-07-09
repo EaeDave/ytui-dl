@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::i18n::Strings;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Screen {
     #[default]
@@ -22,10 +24,10 @@ pub enum MediaMode {
 }
 
 impl MediaMode {
-    pub fn label(self) -> &'static str {
+    pub fn label(self, t: &Strings) -> &'static str {
         match self {
-            Self::Video => "Vídeo",
-            Self::Audio => "Áudio",
+            Self::Video => t.mode_video,
+            Self::Audio => t.mode_audio,
         }
     }
 
@@ -57,13 +59,13 @@ impl QualityPreset {
         Self::Worst,
     ];
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self, t: &Strings) -> &'static str {
         match self {
-            Self::Best => "Melhor",
+            Self::Best => t.quality_best,
             Self::P1080 => "1080p",
             Self::P720 => "720p",
             Self::P480 => "480p",
-            Self::Worst => "Pior",
+            Self::Worst => t.quality_worst,
         }
     }
 
@@ -123,12 +125,12 @@ pub enum AudioFormat {
 impl AudioFormat {
     pub const ALL: [Self; 4] = [Self::M4a, Self::Mp3, Self::Opus, Self::Best];
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self, t: &Strings) -> &'static str {
         match self {
             Self::M4a => "M4A",
             Self::Mp3 => "MP3",
             Self::Opus => "Opus",
-            Self::Best => "Melhor",
+            Self::Best => t.audio_best,
         }
     }
 
@@ -172,13 +174,13 @@ pub enum JobStatus {
 }
 
 impl JobStatus {
-    pub fn label(self) -> &'static str {
+    pub fn label(self, t: &Strings) -> &'static str {
         match self {
-            Self::Queued => "Na fila",
-            Self::Downloading => "Baixando",
-            Self::Done => "Concluído",
-            Self::Failed => "Falhou",
-            Self::Cancelled => "Cancelado",
+            Self::Queued => t.status_queued,
+            Self::Downloading => t.status_downloading,
+            Self::Done => t.status_done,
+            Self::Failed => t.status_failed,
+            Self::Cancelled => t.status_cancelled,
         }
     }
 
@@ -202,6 +204,7 @@ pub enum Focus {
     QueueList,
     SettingsOutput,
     SettingsTemplate,
+    SettingsLanguage,
 }
 
 #[derive(Debug, Clone)]

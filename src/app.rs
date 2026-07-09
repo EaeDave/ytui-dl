@@ -13,6 +13,7 @@ use crate::downloader::{
     build_output_template, fetch_video_info, start_download, watch_download, DownloadRequest,
     Tools,
 };
+use crate::i18n::{Language, Strings};
 use crate::models::{
     AudioFormat, DownloadJob, Focus, JobStatus, MediaMode, QualityPreset, Screen, VideoInfo,
 };
@@ -44,29 +45,35 @@ pub struct App {
 }
 
 impl App {
+    pub fn lang(&self) -> Language {
+        self.config.language
+    }
+
+    pub fn t(&self) -> &'static Strings {
+        self.config.language.strings()
+    }
+
     pub fn new(config: Config) -> Self {
         let mode = config.default_mode;
         let quality = config.default_quality;
         let audio_format = config.default_audio_format;
+        let t = config.language.strings();
 
         let (tools, tools_warning) = match Tools::detect() {
-            Ok(t) => {
-                let warn = if !t.has_ffmpeg() {
-                    Some(
-                        "ffmpeg não encontrado — merge de vídeo/áudio e conversão podem falhar"
-                            .into(),
-                    )
+            Ok(t_tools) => {
+                let warn = if !t_tools.has_ffmpeg() {
+                    Some(t.status_ffmpeg_missing.into())
                 } else {
                     None
                 };
-                (Some(t), warn)
+                (Some(t_tools), warn)
             }
             Err(e) => (None, Some(e.to_string())),
         };
 
         let status = tools_warning
             .clone()
-            .unwrap_or_else(|| "Cole uma URL do YouTube e pressione Enter".into());
+            .unwrap_or_else(|| t.status_paste_url.into());
 
         let settings_output_input = Input::default().with_value(config.output_dir.display().to_string());
         let settings_template_input =
@@ -121,14 +128,14 @@ impl App {
             Action::Paste(text) => self.on_paste(text),
             Action::MetadataReady(info) => {
                 self.fetching = false;
-                self.status_message = format!("Pronto: {}", info.title);
+                self.status_message = self.lang().msg_ready(&info.title);
                 self.preview = Some(info);
                 self.screen = Screen::Preview;
                 self.focus = Focus::Confirm;
             }
             Action::MetadataFailed(err) => {
                 self.fetching = false;
-                self.status_message = format!("Erro: {err}");
+                self.status_message = self.lang().msg_error(&err);
                 self.screen = Screen::Home;
                 self.focus = Focus::UrlInput;
             }
@@ -137,7 +144,7 @@ impl App {
                     job.status = JobStatus::Downloading;
                     job.progress = 0.0;
                 }
-                self.status_message = "Download iniciado…".into();
+                self.status_message = self.t().status_download_started.into();
             }
             Action::DownloadProgress { job_id, update } => {
                 if let Some(job) = self.find_job_mut(job_id) {
@@ -164,7 +171,7 @@ impl App {
                     job.speed = None;
                     job.eta = None;
                     let title = job.display_title().to_string();
-                    self.status_message = format!("Concluído: {title}");
+                    self.status_message = self.lang().msg_done(&title);
                 }
                 self.clear_active_if(job_id);
                 self.try_start_next_job();
@@ -174,7 +181,7 @@ impl App {
                     job.status = JobStatus::Failed;
                     job.error = Some(error.clone());
                 }
-                self.status_message = format!("Falhou: {error}");
+                self.status_message = self.lang().msg_failed(&error);
                 self.clear_active_if(job_id);
                 self.try_start_next_job();
             }
@@ -182,7 +189,7 @@ impl App {
                 if let Some(job) = self.find_job_mut(job_id) {
                     job.status = JobStatus::Cancelled;
                 }
-                self.status_message = "Download cancelado".into();
+                self.status_message = self.t().status_download_cancelled.into();
                 self.clear_active_if(job_id);
                 self.try_start_next_job();
             }
@@ -230,11 +237,7 @@ impl App {
         // Global keys
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
             if self.has_active_download() && !self.should_quit {
-                self.status_message =
-                    "Download ativo — pressione q de novo para sair ou p para cancelar".into();
-                self.should_quit = true; // second ctrl+c would need another path; treat as quit request
-                // Actually plan says confirm - for simplicity quit on second intent:
-                // First time set a flag. Let's use: Ctrl+C always quit after cancel attempt.
+                self.status_message = self.t().status_ctrl_c_hint.into();
             }
             self.cancel_active();
             self.should_quit = true;
@@ -251,9 +254,7 @@ impl App {
         match key.code {
             KeyCode::Char('q') if !self.is_text_focus() => {
                 if self.has_active_download() {
-                    self.status_message =
-                        "Há downloads ativos. Pressione p para cancelar ou Q (shift) para forçar saída"
-                            .into();
+                    self.status_message = self.t().status_active_downloads.into();
                 } else {
                     self.should_quit = true;
                 }
@@ -315,7 +316,7 @@ impl App {
             Screen::Home => {
                 if self.is_text_focus() {
                     // clear is handled? just blur message
-                    self.status_message = "Pressione q para sair".into();
+                    self.status_message = self.t().status_press_q.into();
                 }
             }
         }
@@ -446,11 +447,14 @@ impl App {
             KeyCode::Enter => {
                 if let Some(job) = self.jobs.get(self.queue_selected) {
                     if let Some(path) = &job.output_path {
-                        self.status_message = format!("Salvo em: {}", path.display());
+                        self.status_message =
+                            self.lang().msg_saved_at(&path.display().to_string());
                     } else if let Some(err) = &job.error {
-                        self.status_message = format!("Erro: {err}");
+                        self.status_message = self.lang().msg_error(err);
                     } else {
-                        self.status_message = format!("{} — {}", job.status.label(), job.display_title());
+                        let status = job.status.label(self.t());
+                        self.status_message =
+                            self.lang().msg_job_status(status, job.display_title());
                     }
                 }
             }
@@ -458,7 +462,7 @@ impl App {
                 // clear finished jobs
                 self.jobs.retain(|j| !j.status.is_terminal());
                 self.queue_selected = 0;
-                self.status_message = "Histórico limpo (itens finalizados removidos)".into();
+                self.status_message = self.t().status_history_cleared.into();
             }
             _ => {}
         }
@@ -469,24 +473,33 @@ impl App {
             KeyCode::Tab => {
                 self.focus = match self.focus {
                     Focus::SettingsOutput => Focus::SettingsTemplate,
+                    Focus::SettingsTemplate => Focus::SettingsLanguage,
+                    Focus::SettingsLanguage => Focus::SettingsOutput,
                     _ => Focus::SettingsOutput,
                 };
             }
             KeyCode::BackTab => {
                 self.focus = match self.focus {
+                    Focus::SettingsOutput => Focus::SettingsLanguage,
                     Focus::SettingsTemplate => Focus::SettingsOutput,
-                    _ => Focus::SettingsTemplate,
+                    Focus::SettingsLanguage => Focus::SettingsTemplate,
+                    _ => Focus::SettingsOutput,
                 };
             }
-            KeyCode::Enter => self.apply_and_save_settings(),
-            KeyCode::Char('1') if !self.is_text_focus() || self.focus == Focus::SettingsOutput => {
-                // when not typing? always forward to input if focused
-                if matches!(
-                    self.focus,
-                    Focus::SettingsOutput | Focus::SettingsTemplate
-                ) {
-                    self.forward_settings_input(key);
+            KeyCode::Enter => {
+                if self.focus == Focus::SettingsLanguage {
+                    self.config.language = self.config.language.next();
+                    self.status_message = format!(
+                        "{}: {}",
+                        self.t().settings_language,
+                        self.config.language.native_label()
+                    );
+                } else {
+                    self.apply_and_save_settings();
                 }
+            }
+            KeyCode::Left | KeyCode::Right if self.focus == Focus::SettingsLanguage => {
+                self.config.language = self.config.language.next();
             }
             _ => {
                 if matches!(
@@ -525,11 +538,11 @@ impl App {
         let out = self.settings_output_input.value().trim();
         let tmpl = self.settings_template_input.value().trim();
         if out.is_empty() {
-            self.status_message = "Pasta de saída não pode ser vazia".into();
+            self.status_message = self.t().status_output_empty.into();
             return;
         }
         if tmpl.is_empty() {
-            self.status_message = "Template de nome não pode ser vazio".into();
+            self.status_message = self.t().status_template_empty.into();
             return;
         }
         self.config.output_dir = PathBuf::from(out);
@@ -539,31 +552,31 @@ impl App {
         self.config.default_audio_format = self.audio_format;
         match self.config.save() {
             Ok(()) => {
-                self.status_message = "Configurações salvas".into();
+                self.status_message = self.t().status_settings_saved.into();
                 self.screen = Screen::Home;
                 self.focus = Focus::UrlInput;
             }
             Err(e) => {
-                self.status_message = format!("Erro ao salvar: {e}");
+                self.status_message = self.lang().msg_save_error(&e.to_string());
             }
         }
     }
 
     fn start_fetch_metadata(&mut self) {
         if self.fetching {
-            self.status_message = "Já buscando metadata…".into();
+            self.status_message = self.t().status_already_fetching.into();
             return;
         }
         let Some(tools) = self.tools.clone() else {
             self.status_message = self
                 .tools_warning
                 .clone()
-                .unwrap_or_else(|| "yt-dlp não disponível".into());
+                .unwrap_or_else(|| self.t().status_ytdlp_unavailable.into());
             return;
         };
         let url = self.url_input.value().trim().to_string();
         if url.is_empty() {
-            self.status_message = "Informe uma URL do YouTube".into();
+            self.status_message = self.t().status_need_url.into();
             return;
         }
         let Some(tx) = self.action_tx.clone() else {
@@ -571,7 +584,7 @@ impl App {
         };
 
         self.fetching = true;
-        self.status_message = "Buscando informações…".into();
+        self.status_message = self.t().status_fetching.into();
 
         tokio::spawn(async move {
             match fetch_video_info(&tools, &url).await {
@@ -587,14 +600,14 @@ impl App {
 
     fn enqueue_from_preview(&mut self) {
         let Some(preview) = self.preview.clone() else {
-            self.status_message = "Nenhum vídeo carregado".into();
+            self.status_message = self.t().status_no_video.into();
             return;
         };
         if self.tools.is_none() {
             self.status_message = self
                 .tools_warning
                 .clone()
-                .unwrap_or_else(|| "yt-dlp não disponível".into());
+                .unwrap_or_else(|| self.t().status_ytdlp_unavailable.into());
             return;
         }
 
@@ -609,7 +622,7 @@ impl App {
         self.queue_selected = self.jobs.len().saturating_sub(1);
         self.screen = Screen::Queue;
         self.focus = Focus::QueueList;
-        self.status_message = format!("Adicionado à fila: {}", preview.title);
+        self.status_message = self.lang().msg_queued(&preview.title);
         self.try_start_next_job();
     }
 
@@ -670,15 +683,15 @@ impl App {
     fn cancel_active(&mut self) {
         if let Some(tx) = self.cancel_tx.take() {
             let _ = tx.send(());
-            self.status_message = "Cancelando download…".into();
+            self.status_message = self.t().status_cancelling.into();
         } else if self.active_job_id.is_some() {
-            self.status_message = "Cancelamento já em andamento…".into();
+            self.status_message = self.t().status_cancel_pending.into();
         } else if let Some(job) = self.jobs.iter_mut().find(|j| j.status == JobStatus::Queued)
         {
             job.status = JobStatus::Cancelled;
-            self.status_message = "Item removido da fila".into();
+            self.status_message = self.t().status_queue_item_cancelled.into();
         } else {
-            self.status_message = "Nenhum download ativo".into();
+            self.status_message = self.t().status_no_active.into();
         }
     }
 
@@ -689,8 +702,8 @@ impl App {
         // xdg-open / open / explorer
         let result = open_path(&dir);
         self.status_message = match result {
-            Ok(()) => format!("Abrindo: {path}"),
-            Err(e) => format!("Não foi possível abrir pasta: {e} (path: {path})"),
+            Ok(()) => self.lang().msg_opening(&path),
+            Err(e) => self.lang().msg_open_failed(&e.to_string(), &path),
         };
     }
 

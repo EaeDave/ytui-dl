@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
+use crate::i18n::Language;
 use crate::models::{AudioFormat, MediaMode, QualityPreset};
 
 const APP_DIR: &str = "ytui-dl";
@@ -16,6 +17,8 @@ pub struct Config {
     pub default_mode: MediaMode,
     pub default_quality: QualityPreset,
     pub default_audio_format: AudioFormat,
+    #[serde(default)]
+    pub language: Language,
 }
 
 impl Default for Config {
@@ -26,6 +29,7 @@ impl Default for Config {
             default_mode: MediaMode::Video,
             default_quality: QualityPreset::Best,
             default_audio_format: AudioFormat::M4a,
+            language: Language::En,
         }
     }
 }
@@ -47,8 +51,8 @@ impl Config {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let content = toml::to_string_pretty(self)
-            .map_err(|e| AppError::Config(e.to_string()))?;
+        let content =
+            toml::to_string_pretty(self).map_err(|e| AppError::Config(e.to_string()))?;
         fs::write(&path, content)?;
         Ok(())
     }
@@ -63,7 +67,7 @@ fn default_output_dir() -> PathBuf {
 
 fn config_dir() -> Result<PathBuf> {
     let base = dirs::config_dir().ok_or_else(|| {
-        AppError::Config("não foi possível determinar o diretório de config".into())
+        AppError::Config("could not determine config directory".into())
     })?;
     Ok(base.join(APP_DIR))
 }

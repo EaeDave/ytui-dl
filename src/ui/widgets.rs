@@ -29,19 +29,16 @@ pub fn title_block(title: &str) -> Block<'_> {
 }
 
 pub fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
+    let t = app.t();
     let screen = match app.screen {
-        Screen::Home => "Início",
-        Screen::Preview => "Preview",
-        Screen::Queue => "Fila",
-        Screen::Settings => "Config",
-        Screen::Help => "Ajuda",
+        Screen::Home => t.screen_home,
+        Screen::Preview => t.screen_preview,
+        Screen::Queue => t.screen_queue,
+        Screen::Settings => t.screen_settings,
+        Screen::Help => t.screen_help,
     };
 
-    let active = app
-        .jobs
-        .iter()
-        .filter(|j| j.status.is_active())
-        .count();
+    let active = app.jobs.iter().filter(|j| j.status.is_active()).count();
 
     let line = Line::from(vec![
         Span::styled(
@@ -55,7 +52,7 @@ pub fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
         Span::styled(screen, Style::default().fg(Color::Cyan)),
         Span::raw("  │  "),
         Span::styled(
-            format!("fila: {active}"),
+            format!("{}: {active}", t.queue_count),
             Style::default().fg(if active > 0 {
                 Color::Yellow
             } else {
@@ -68,12 +65,13 @@ pub fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 pub fn draw_status_bar(frame: &mut Frame, area: Rect, app: &App) {
+    let t = app.t();
     let hints = match app.screen {
-        Screen::Home => "Tab foco  Enter buscar  v/a modo  1-5 qualidade  f fila  s config  ? ajuda  q sair",
-        Screen::Preview => "Enter baixar  m modo  1-5 qualidade  Esc voltar  f fila  ? ajuda",
-        Screen::Queue => "j/k navegar  p cancelar  c limpar finalizados  o pasta  Esc voltar",
-        Screen::Settings => "Tab campo  Enter salvar  Esc cancelar",
-        Screen::Help => "Esc / ? / q fechar",
+        Screen::Home => t.hint_home,
+        Screen::Preview => t.hint_preview,
+        Screen::Queue => t.hint_queue,
+        Screen::Settings => t.hint_settings,
+        Screen::Help => t.hint_help,
     };
 
     let msg = if app.fetching {
@@ -82,8 +80,11 @@ pub fn draw_status_bar(frame: &mut Frame, area: Rect, app: &App) {
         format!(" {}  │  {}", app.status_message, hints)
     };
 
-    let style = if app.status_message.to_ascii_lowercase().contains("erro")
-        || app.status_message.to_ascii_lowercase().contains("falh")
+    let lower = app.status_message.to_ascii_lowercase();
+    let style = if lower.contains("error")
+        || lower.contains("erro")
+        || lower.contains("fail")
+        || lower.contains("falh")
     {
         Style::default().fg(Color::Red)
     } else if app.fetching {

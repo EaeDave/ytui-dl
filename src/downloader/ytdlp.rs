@@ -69,7 +69,7 @@ pub async fn fetch_video_info(tools: &Tools, url: &str) -> Result<VideoInfo> {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let msg = first_nonempty_line(&stderr)
             .or_else(|| first_nonempty_line(&stdout))
-            .unwrap_or("yt-dlp falhou ao obter metadata")
+            .unwrap_or("yt-dlp failed to fetch metadata")
             .to_string();
         return Err(AppError::YtDlpFailed(msg));
     }
@@ -79,11 +79,11 @@ pub async fn fetch_video_info(tools: &Tools, url: &str) -> Result<VideoInfo> {
 
     Ok(VideoInfo {
         id: json.id.unwrap_or_else(|| "unknown".into()),
-        title: json.title.unwrap_or_else(|| "Sem título".into()),
+        title: json.title.unwrap_or_else(|| "Untitled".into()),
         uploader: json
             .uploader
             .or(json.channel)
-            .unwrap_or_else(|| "Desconhecido".into()),
+            .unwrap_or_else(|| "Unknown".into()),
         duration_secs: json.duration.map(|d| d.max(0.0) as u64),
         webpage_url: json
             .webpage_url
@@ -236,10 +236,10 @@ pub async fn watch_download(
                     let code = status
                         .code()
                         .map(|c| c.to_string())
-                        .unwrap_or_else(|| "sinal".into());
+                        .unwrap_or_else(|| "signal".into());
                     let _ = tx.send(Action::DownloadFailed {
                         job_id,
-                        error: format!("yt-dlp saiu com código {code}"),
+                        error: format!("yt-dlp exited with code {code}"),
                     });
                 }
                 Err(e) => {
