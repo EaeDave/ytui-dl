@@ -115,33 +115,26 @@ installed_version() {
 # Prints: TAG\tASSET_URL\tASSET_NAME
 fetch_latest_release() {
   need_cmd curl
-  local json tag asset_name asset_url target
+  local tag asset_name asset_url target effective
   target="$(detect_target)"
   asset_name="${BIN_NAME}-${target}"
 
-  json="$(curl -fsSL \
-    -H "Accept: application/vnd.github+json" \
-    -H "X-GitHub-Api-Version: 2022-11-28" \
-    "${GITHUB_API}/releases/latest")" \
-    || die "não foi possível consultar releases (existe release pública em ${GITHUB_RELEASES}?)"
+  # Prefer redirect on /releases/latest (no API token / fewer rate limits)
+  effective="$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
+    -A "ytui-dl-install" \
+    "https://github.com/${REPO}/releases/latest")" \
+    || die "não foi possível resolver a latest release (veja ${GITHUB_RELEASES})"
 
-  if command -v jq >/dev/null 2>&1; then
-    tag="$(printf '%s' "$json" | jq -r '.tag_name // empty')"
-    asset_url="$(printf '%s' "$json" | jq -r --arg n "$asset_name" \
-      '.assets[]? | select(.name==$n) | .browser_download_url' | head -n1)"
-  else
-    tag="$(printf '%s' "$json" \
-      | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' \
-      | head -n1 \
-      | sed 's/.*"\([^"]*\)"$/\1/')"
-    asset_url="$(printf '%s' "$json" \
-      | grep -oE "https://[^\"]+/${asset_name}\"" \
-      | head -n1 \
-      | tr -d '"')"
+  tag="${effective##*/}"
+  [[ -n "$tag" && "$tag" != "latest" ]] \
+    || die "não foi possível determinar a tag da latest release"
+
+  asset_url="https://github.com/${REPO}/releases/download/${tag}/${asset_name}"
+
+  # Sanity: asset must exist (HEAD)
+  if ! curl -fsSLI -A "ytui-dl-install" "$asset_url" >/dev/null 2>&1; then
+    die "asset '${asset_name}' não encontrado na release ${tag}. Veja ${GITHUB_RELEASES}"
   fi
-
-  [[ -n "$tag" ]] || die "nenhuma release encontrada em ${REPO}"
-  [[ -n "$asset_url" ]] || die "asset '${asset_name}' não encontrado na release ${tag}. Veja ${GITHUB_RELEASES}"
 
   printf '%s\t%s\t%s\n' "$tag" "$asset_url" "$asset_name"
 }
