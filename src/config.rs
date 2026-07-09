@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{AppError, Result};
 use crate::models::{AudioFormat, MediaMode, QualityPreset};
 
-const APP_DIR: &str = "youtube-downloader";
+const APP_DIR: &str = "ytui";
 const CONFIG_FILE: &str = "config.toml";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,7 +58,7 @@ fn default_output_dir() -> PathBuf {
     dirs::download_dir()
         .or_else(dirs::home_dir)
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("youtube-downloader")
+        .join("ytui")
 }
 
 fn config_dir() -> Result<PathBuf> {

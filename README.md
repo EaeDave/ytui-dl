@@ -1,9 +1,8 @@
-# youtube-downloader
+# ytui
 
-TUI em Rust para baixar **vídeos** e **áudios** do YouTube, com boa UI/UX no terminal.
+**YouTube no terminal.** TUI em Rust para baixar vídeos e áudios do YouTube.
 
-Backend de download: **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** (subprocesso).  
-Interface: **[Ratatui](https://ratatui.rs/)** + Crossterm + Tokio.
+Backend: **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** · Interface: **[Ratatui](https://ratatui.rs/)**
 
 ## Dependências do sistema
 
@@ -11,8 +10,6 @@ Interface: **[Ratatui](https://ratatui.rs/)** + Crossterm + Tokio.
 |------------|-------------|--------|
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | **Sim** | Extrair e baixar mídia do YouTube |
 | [ffmpeg](https://ffmpeg.org/) | Recomendado | Merge vídeo+áudio e conversão de áudio (mp3/m4a/opus) |
-
-### Instalação rápida
 
 ```bash
 # Arch
@@ -28,10 +25,12 @@ brew install yt-dlp ffmpeg
 ## Build e execução
 
 ```bash
+cargo install --path .
+# ou
 cargo run --release
 ```
 
-Binário: `target/release/youtube-downloader`.
+Binário: `ytui`
 
 ## Uso
 
@@ -39,7 +38,7 @@ Binário: `target/release/youtube-downloader`.
 2. Escolha **Vídeo** ou **Áudio** (`v` / `a`) e a qualidade (`1`–`5`).
 3. `Enter` busca os metadados (título, canal, duração).
 4. No preview, `Enter` adiciona à fila e inicia o download.
-5. Acompanhe progresso em **Fila** (`f`).
+5. Acompanhe o progresso em **Fila** (`f`).
 
 ### Atalhos principais
 
@@ -47,6 +46,7 @@ Binário: `target/release/youtube-downloader`.
 |-------|------|
 | `Enter` | Buscar / confirmar download |
 | `v` / `a` | Modo vídeo / áudio |
+| `←` / `→` | Alternar qualidade ou formato de áudio |
 | `1`–`5` | Qualidade (Melhor → Pior) |
 | `f` | Fila |
 | `s` | Configurações |
@@ -57,17 +57,17 @@ Binário: `target/release/youtube-downloader`.
 
 ## Configuração
 
-Arquivo: `~/.config/youtube-downloader/config.toml`
+Arquivo: `~/.config/ytui/config.toml`
 
 ```toml
-output_dir = "/home/voce/Downloads/youtube-downloader"
+output_dir = "/home/voce/Downloads/ytui"
 output_template = "%(title)s [%(id)s].%(ext)s"
 default_mode = "video"
 default_quality = "best"
 default_audio_format = "m4a"
 ```
 
-Padrão de saída: `~/Downloads/youtube-downloader/` (ou home se Downloads não existir).
+Padrão de saída: `~/Downloads/ytui/` (ou home se Downloads não existir).
 
 ## Stack
 

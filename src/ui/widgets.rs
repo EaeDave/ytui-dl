@@ -45,7 +45,7 @@ pub fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
 
     let line = Line::from(vec![
         Span::styled(
-            " ▶ youtube-downloader ",
+            " ▶ ytui ",
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Magenta)

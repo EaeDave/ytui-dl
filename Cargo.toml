@@ -1,11 +1,13 @@
 [package]
-name = "youtube-downloader"
+name = "ytui"
 version = "0.1.0"
 edition = "2021"
-description = "TUI YouTube downloader powered by yt-dlp"
+description = "YouTube TUI downloader powered by yt-dlp"
 license = "MIT"
 readme = "README.md"
-keywords = ["youtube", "download", "tui", "yt-dlp"]
+repository = "https://github.com/EaeDave/ytui"
+homepage = "https://github.com/EaeDave/ytui"
+keywords = ["youtube", "download", "tui", "yt-dlp", "terminal"]
 categories = ["command-line-utilities", "multimedia"]
 
 [dependencies]
