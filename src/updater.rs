@@ -432,18 +432,56 @@ async fn fetch_latest_tag() -> Result<Option<String>, ()> {
     Ok(Some(tag.to_string()))
 }
 
+/// Download with retries — GitHub release CDN occasionally returns 5xx/timeouts.
 async fn download_file(url: &str, dest: &Path) -> Result<()> {
-    let status = Command::new("curl")
-        .args(["-fsSL", "-A", USER_AGENT, "-o"])
-        .arg(dest)
-        .arg(url)
-        .status()
-        .await
-        .wrap_err("run curl")?;
-    if !status.success() {
-        bail!("download failed: {url}");
+    const ATTEMPTS: u32 = 4;
+    let mut last_err = String::new();
+
+    for attempt in 1..=ATTEMPTS {
+        // --retry handles some transient errors; we also re-run the whole curl on hard fail.
+        let status = Command::new("curl")
+            .args([
+                "-fsSL",
+                "--connect-timeout",
+                "15",
+                "--max-time",
+                "300",
+                "--retry",
+                "3",
+                "--retry-delay",
+                "1",
+                "--retry-all-errors",
+                "-A",
+                USER_AGENT,
+                "-o",
+            ])
+            .arg(dest)
+            .arg(url)
+            .status()
+            .await
+            .wrap_err("run curl")?;
+
+        if status.success() {
+            // Basic sanity: non-empty file
+            let meta = tokio::fs::metadata(dest).await.wrap_err("stat download")?;
+            if meta.len() > 0 {
+                return Ok(());
+            }
+            last_err = "downloaded empty file".into();
+        } else {
+            last_err = status
+                .code()
+                .map(|c| format!("curl exit code {c}"))
+                .unwrap_or_else(|| "curl failed".into());
+        }
+
+        if attempt < ATTEMPTS {
+            let wait = attempt * 2;
+            tokio::time::sleep(Duration::from_secs(wait.into())).await;
+        }
     }
-    Ok(())
+
+    bail!("download failed after {ATTEMPTS} attempts ({last_err}): {url}");
 }
 
 async fn verify_sha256(bin: &Path, sum_file: &Path) -> Result<()> {
