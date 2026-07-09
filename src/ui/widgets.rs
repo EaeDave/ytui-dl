@@ -40,7 +40,7 @@ pub fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
 
     let active = app.jobs.iter().filter(|j| j.status.is_active()).count();
 
-    let line = Line::from(vec![
+    let mut spans = vec![
         Span::styled(
             " ▶ ytui-dl ",
             Style::default()
@@ -59,9 +59,20 @@ pub fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
                 Color::DarkGray
             }),
         ),
-    ]);
+    ];
 
-    frame.render_widget(Paragraph::new(line), area);
+    if let Some(ver) = &app.update_available {
+        spans.push(Span::raw("  │  "));
+        spans.push(Span::styled(
+            format!("↑ {} v{ver}  (u)", t.update_badge),
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ));
+    }
+
+    frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
 pub fn draw_status_bar(frame: &mut Frame, area: Rect, app: &App) {

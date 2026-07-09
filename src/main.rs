@@ -8,6 +8,7 @@ mod i18n;
 mod models;
 mod tui;
 mod ui;
+mod updater;
 
 use color_eyre::eyre::Result;
 use tokio::sync::mpsc;
@@ -68,6 +69,9 @@ async fn main() -> Result<()> {
     let mut app = App::new(config);
     let (action_tx, mut action_rx) = mpsc::unbounded_channel::<Action>();
     app.set_action_tx(action_tx.clone());
+
+    // Background: notify if a newer GitHub release exists (never blocks UI).
+    updater::spawn_check(action_tx.clone());
 
     let mut tui = Tui::new()?;
     tui.enter()?;

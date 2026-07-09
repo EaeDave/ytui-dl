@@ -42,6 +42,8 @@ pub struct App {
     cancel_tx: Option<mpsc::UnboundedSender<()>>,
     action_tx: Option<mpsc::UnboundedSender<Action>>,
     tick_count: u64,
+    /// Newer release version available (no leading `v`), if any.
+    pub update_available: Option<String>,
 }
 
 impl App {
@@ -102,6 +104,7 @@ impl App {
             cancel_tx: None,
             action_tx: None,
             tick_count: 0,
+            update_available: None,
         }
     }
 
@@ -193,6 +196,19 @@ impl App {
                 self.clear_active_if(job_id);
                 self.try_start_next_job();
             }
+            Action::UpdateAvailable { version } => {
+                self.update_available = Some(version.clone());
+                // Only surface if still on the default welcome/status (don't clobber errors).
+                let t = self.t();
+                if self.status_message == t.status_paste_url
+                    || self
+                        .tools_warning
+                        .as_ref()
+                        .is_some_and(|w| self.status_message == *w)
+                {
+                    self.status_message = self.lang().msg_update_available(&version);
+                }
+            }
             Action::Status(msg) => {
                 self.status_message = msg;
             }
@@ -283,6 +299,9 @@ impl App {
             }
             KeyCode::Char('o') if !self.is_text_focus() => {
                 self.open_output_dir();
+            }
+            KeyCode::Char('u') if !self.is_text_focus() => {
+                self.show_update_help();
             }
             KeyCode::Esc => self.on_esc(),
             _ => match self.screen {
@@ -710,6 +729,15 @@ impl App {
     pub fn spinner_frame(&self) -> &'static str {
         const FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
         FRAMES[(self.tick_count as usize / 2) % FRAMES.len()]
+    }
+
+    fn show_update_help(&mut self) {
+        let cmd = crate::updater::install_command();
+        if let Some(ver) = &self.update_available {
+            self.status_message = self.lang().msg_update_howto(ver, cmd);
+        } else {
+            self.status_message = self.t().status_up_to_date.into();
+        }
     }
 }
 

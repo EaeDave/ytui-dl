@@ -35,6 +35,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         key("1-5", t.help_quality),
         key("p", t.help_cancel),
         key("o", t.help_open),
+        key("u", t.help_update),
         Line::from(""),
         section(t.help_queue_section),
         key("j / k", t.help_jk),

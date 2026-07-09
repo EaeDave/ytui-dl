@@ -35,5 +35,10 @@ pub enum Action {
         job_id: Uuid,
     },
 
+    /// Newer GitHub release detected (version without leading `v`).
+    UpdateAvailable {
+        version: String,
+    },
+
     Status(String),
 }

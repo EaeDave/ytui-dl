@@ -45,6 +45,8 @@ pub struct Strings {
     pub screen_settings: &'static str,
     pub screen_help: &'static str,
     pub queue_count: &'static str,
+    /// Short header badge when update exists (prefix; version appended in UI).
+    pub update_badge: &'static str,
 
     // Status bar hints
     pub hint_home: &'static str,
@@ -137,10 +139,12 @@ pub struct Strings {
     pub help_queue_section: &'static str,
     pub help_jk: &'static str,
     pub help_clear: &'static str,
+    pub help_update: &'static str,
     pub help_footer: &'static str,
 
     // Status / messages (static parts)
     pub status_paste_url: &'static str,
+    pub status_up_to_date: &'static str,
     pub status_ffmpeg_missing: &'static str,
     pub status_download_started: &'static str,
     pub status_download_cancelled: &'static str,
@@ -170,10 +174,11 @@ pub static EN: Strings = Strings {
     screen_settings: "Settings",
     screen_help: "Help",
     queue_count: "queue",
+    update_badge: "update",
 
-    hint_home: "Tab focus  Enter fetch  v/a mode  1-5 quality  f queue  s settings  ? help  q quit",
-    hint_preview: "Enter download  m mode  1-5 quality  Esc back  f queue  ? help",
-    hint_queue: "j/k navigate  p cancel  c clear finished  o folder  Esc back",
+    hint_home: "Tab focus  Enter fetch  v/a mode  1-5 quality  f queue  u update  s settings  ? help  q quit",
+    hint_preview: "Enter download  m mode  1-5 quality  Esc back  f queue  u update  ? help",
+    hint_queue: "j/k navigate  p cancel  c clear finished  o folder  u update  Esc back",
     hint_settings: "Tab field  ←/→ language  Enter save  Esc cancel",
     hint_help: "Esc / ? / q close",
 
@@ -256,9 +261,11 @@ pub static EN: Strings = Strings {
     help_queue_section: "Queue",
     help_jk: "Navigate items",
     help_clear: "Clear finished items",
+    help_update: "Show update info / install command",
     help_footer: "ytui-dl  ·  powered by yt-dlp  ·  Ratatui",
 
     status_paste_url: "Paste a YouTube URL and press Enter",
+    status_up_to_date: "You are on the latest release",
     status_ffmpeg_missing: "ffmpeg not found — video/audio merge and conversion may fail",
     status_download_started: "Download started…",
     status_download_cancelled: "Download cancelled",
@@ -288,10 +295,11 @@ pub static PT_BR: Strings = Strings {
     screen_settings: "Config",
     screen_help: "Ajuda",
     queue_count: "fila",
+    update_badge: "atualização",
 
-    hint_home: "Tab foco  Enter buscar  v/a modo  1-5 qualidade  f fila  s config  ? ajuda  q sair",
-    hint_preview: "Enter baixar  m modo  1-5 qualidade  Esc voltar  f fila  ? ajuda",
-    hint_queue: "j/k navegar  p cancelar  c limpar finalizados  o pasta  Esc voltar",
+    hint_home: "Tab foco  Enter buscar  v/a modo  1-5 qualidade  f fila  u update  s config  ? ajuda  q sair",
+    hint_preview: "Enter baixar  m modo  1-5 qualidade  Esc voltar  f fila  u update  ? ajuda",
+    hint_queue: "j/k navegar  p cancelar  c limpar finalizados  o pasta  u update  Esc voltar",
     hint_settings: "Tab campo  ←/→ idioma  Enter salvar  Esc cancelar",
     hint_help: "Esc / ? / q fechar",
 
@@ -374,9 +382,11 @@ pub static PT_BR: Strings = Strings {
     help_queue_section: "Fila",
     help_jk: "Navegar itens",
     help_clear: "Limpar itens finalizados",
+    help_update: "Mostrar info de update / comando de instalação",
     help_footer: "ytui-dl  ·  powered by yt-dlp  ·  Ratatui",
 
     status_paste_url: "Cole uma URL do YouTube e pressione Enter",
+    status_up_to_date: "Você já está na última release",
     status_ffmpeg_missing: "ffmpeg não encontrado — merge de vídeo/áudio e conversão podem falhar",
     status_download_started: "Download iniciado…",
     status_download_cancelled: "Download cancelado",
@@ -466,5 +476,23 @@ impl Language {
 
     pub fn msg_job_status(self, status: &str, title: &str) -> String {
         format!("{status} — {title}")
+    }
+
+    pub fn msg_update_available(self, version: &str) -> String {
+        match self {
+            Self::En => format!(
+                "Update available: v{version}  ·  press u for install command"
+            ),
+            Self::PtBr => format!(
+                "Atualização disponível: v{version}  ·  pressione u para o comando"
+            ),
+        }
+    }
+
+    pub fn msg_update_howto(self, version: &str, cmd: &str) -> String {
+        match self {
+            Self::En => format!("Update to v{version}: quit (q) then run: {cmd}"),
+            Self::PtBr => format!("Atualizar para v{version}: saia (q) e rode: {cmd}"),
+        }
     }
 }

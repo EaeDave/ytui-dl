@@ -104,8 +104,11 @@ language = "pt-BR"    # ou "en"
 | `s` | Configurações |
 | `p` | Cancelar download ativo |
 | `o` | Abrir pasta de saída |
+| `u` | Info de atualização (se houver release nova) |
 | `?` | Ajuda |
 | `q` | Sair |
+
+Na abertura, o ytui-dl consulta as GitHub Releases em background. Se houver versão mais nova, um badge amarelo aparece no header; pressione **`u`** para ver o comando de instalação, saia e rode de novo.
 
 ## Configuração
 

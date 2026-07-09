@@ -104,8 +104,11 @@ language = "en"    # or "pt-BR"
 | `s` | Settings |
 | `p` | Cancel active download |
 | `o` | Open output folder |
+| `u` | Update info (if a newer release exists) |
 | `?` | Help |
 | `q` | Quit |
+
+On startup, ytui-dl checks GitHub Releases in the background. If a newer version is available, a yellow badge appears in the header; press **`u`** for the one-line install command, then quit and re-run it.
 
 ## Configuration
 
