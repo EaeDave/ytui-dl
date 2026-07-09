@@ -5,7 +5,7 @@ use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::Frame;
 
 use crate::app::App;
-use crate::models::{MediaMode, QualityPreset};
+use crate::models::{MediaMode, OutputProfile, QualityPreset};
 use crate::ui::widgets::title_block;
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
@@ -61,9 +61,16 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     );
 
     let mode_label = app.mode.label(t);
+    let profile_label = app.profile.label(t);
     let quality_label = match app.mode {
         MediaMode::Video => app.quality.label(t).to_string(),
-        MediaMode::Audio => app.audio_format.label(t).to_string(),
+        MediaMode::Audio => {
+            if app.profile == OutputProfile::WhatsApp {
+                "M4A".to_string()
+            } else {
+                app.audio_format.label(t).to_string()
+            }
+        }
     };
 
     let quality_field = match app.mode {
@@ -81,6 +88,20 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled("  (m / v/a)", Style::default().fg(Color::DarkGray)),
+        ]),
+        Line::from(vec![
+            Span::styled(t.field_profile, Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                profile_label,
+                Style::default()
+                    .fg(if app.profile == OutputProfile::WhatsApp {
+                        Color::Cyan
+                    } else {
+                        Color::Green
+                    })
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled("  (w / b / p)", Style::default().fg(Color::DarkGray)),
         ]),
         Line::from(vec![
             Span::styled(quality_field, Style::default().fg(Color::DarkGray)),

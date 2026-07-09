@@ -15,7 +15,8 @@ use crate::downloader::{
 };
 use crate::i18n::{Language, Strings};
 use crate::models::{
-    AudioFormat, DownloadJob, Focus, JobStatus, MediaMode, QualityPreset, Screen, VideoInfo,
+    AudioFormat, DownloadJob, Focus, JobStatus, MediaMode, OutputProfile, QualityPreset, Screen,
+    VideoInfo,
 };
 
 pub struct App {
@@ -27,6 +28,7 @@ pub struct App {
     pub settings_output_input: Input,
     pub settings_template_input: Input,
     pub mode: MediaMode,
+    pub profile: OutputProfile,
     pub quality: QualityPreset,
     pub audio_format: AudioFormat,
     pub config: Config,
@@ -67,6 +69,7 @@ impl App {
 
     pub fn new(config: Config) -> Self {
         let mode = config.default_mode;
+        let profile = config.default_profile;
         let quality = config.default_quality;
         let audio_format = config.default_audio_format;
         let t = config.language.strings();
@@ -100,6 +103,7 @@ impl App {
             settings_output_input,
             settings_template_input,
             mode,
+            profile,
             quality,
             audio_format,
             config,
@@ -445,6 +449,9 @@ impl App {
                 Focus::Mode => {
                     self.mode = self.mode.toggle();
                 }
+                Focus::Profile => {
+                    self.profile = self.profile.toggle();
+                }
                 Focus::Quality => {
                     self.quality = self.quality.next();
                 }
@@ -463,6 +470,12 @@ impl App {
             KeyCode::Char('a') if self.focus != Focus::UrlInput => {
                 self.mode = MediaMode::Audio;
             }
+            KeyCode::Char('w') if self.focus != Focus::UrlInput => {
+                self.profile = OutputProfile::WhatsApp;
+            }
+            KeyCode::Char('b') if self.focus != Focus::UrlInput => {
+                self.profile = OutputProfile::Best;
+            }
             KeyCode::Char(c) if self.focus != Focus::UrlInput && c.is_ascii_digit() => {
                 if let Some(q) = QualityPreset::from_digit(c) {
                     self.quality = q;
@@ -470,6 +483,9 @@ impl App {
             }
             KeyCode::Left | KeyCode::Right if self.focus == Focus::Mode => {
                 self.mode = self.mode.toggle();
+            }
+            KeyCode::Left | KeyCode::Right if self.focus == Focus::Profile => {
+                self.profile = self.profile.toggle();
             }
             KeyCode::Right if self.focus == Focus::Quality => {
                 self.quality = self.quality.next();
@@ -499,6 +515,7 @@ impl App {
         let order = [
             Focus::UrlInput,
             Focus::Mode,
+            Focus::Profile,
             Focus::Quality,
             Focus::AudioFormat,
             Focus::Confirm,
@@ -521,6 +538,8 @@ impl App {
             KeyCode::Enter | KeyCode::Char('d') => self.enqueue_from_preview(),
             KeyCode::Char('v') => self.mode = MediaMode::Video,
             KeyCode::Char('a') => self.mode = MediaMode::Audio,
+            KeyCode::Char('w') => self.profile = OutputProfile::WhatsApp,
+            KeyCode::Char('b') => self.profile = OutputProfile::Best,
             KeyCode::Char(c) if c.is_ascii_digit() => {
                 if let Some(q) = QualityPreset::from_digit(c) {
                     self.quality = q;
@@ -684,6 +703,7 @@ impl App {
         self.config.output_dir = PathBuf::from(out);
         self.config.output_template = tmpl.to_string();
         self.config.default_mode = self.mode;
+        self.config.default_profile = self.profile;
         self.config.default_quality = self.quality;
         self.config.default_audio_format = self.audio_format;
         // language + auto_open already live on config
@@ -748,9 +768,16 @@ impl App {
             return;
         }
 
+        if self.profile == OutputProfile::WhatsApp && self.tools.as_ref().is_some_and(|t| !t.has_ffmpeg())
+        {
+            self.status_message = self.t().status_whatsapp_needs_ffmpeg.into();
+            return;
+        }
+
         let job = DownloadJob::new(
             preview.webpage_url.clone(),
             self.mode,
+            self.profile,
             self.quality,
             self.audio_format,
             Some(preview.title.clone()),
@@ -785,6 +812,7 @@ impl App {
             job_id,
             url: job.url.clone(),
             mode: job.mode,
+            profile: job.profile,
             quality: job.quality,
             audio_format: job.audio_format,
             output_template: build_output_template(

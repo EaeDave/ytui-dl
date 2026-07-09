@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
 use crate::i18n::Language;
-use crate::models::{AudioFormat, MediaMode, QualityPreset};
+use crate::models::{AudioFormat, MediaMode, OutputProfile, QualityPreset};
 
 const APP_DIR: &str = "ytui-dl";
 const CONFIG_FILE: &str = "config.toml";
@@ -15,6 +15,8 @@ pub struct Config {
     pub output_dir: PathBuf,
     pub output_template: String,
     pub default_mode: MediaMode,
+    #[serde(default)]
+    pub default_profile: OutputProfile,
     pub default_quality: QualityPreset,
     pub default_audio_format: AudioFormat,
     #[serde(default)]
@@ -34,6 +36,7 @@ impl Default for Config {
             output_dir: default_output_dir(),
             output_template: "%(title)s [%(id)s].%(ext)s".into(),
             default_mode: MediaMode::Video,
+            default_profile: OutputProfile::Best,
             default_quality: QualityPreset::Best,
             default_audio_format: AudioFormat::M4a,
             language: Language::En,

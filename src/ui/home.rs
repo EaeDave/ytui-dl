@@ -12,7 +12,7 @@ use crate::ui::widgets::{focused_style, title_block};
 pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::vertical([
         Constraint::Length(3),
-        Constraint::Length(7),
+        Constraint::Length(8),
         Constraint::Min(3),
     ])
     .split(area);
@@ -59,10 +59,12 @@ fn draw_options(frame: &mut Frame, area: Rect, app: &App) {
         Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(1),
+        Constraint::Length(1),
     ])
     .split(inner);
 
     let mode_focus = app.focus == Focus::Mode;
+    let profile_focus = app.focus == Focus::Profile;
     let quality_focus = app.focus == Focus::Quality;
     let audio_focus = app.focus == Focus::AudioFormat;
     let confirm_focus = app.focus == Focus::Confirm;
@@ -84,6 +86,19 @@ fn draw_options(frame: &mut Frame, area: Rect, app: &App) {
     ]);
     frame.render_widget(Paragraph::new(mode_line), rows[0]);
 
+    let mut profile_spans = vec![Span::styled(t.profile_label, focused_style(profile_focus))];
+    for (i, p) in crate::models::OutputProfile::ALL.iter().enumerate() {
+        if i > 0 {
+            profile_spans.push(Span::raw("  "));
+        }
+        profile_spans.push(pill(p.label(t), app.profile == *p, profile_focus));
+    }
+    profile_spans.push(Span::styled(
+        t.profile_hint,
+        Style::default().fg(Color::DarkGray),
+    ));
+    frame.render_widget(Paragraph::new(Line::from(profile_spans)), rows[1]);
+
     let mut quality_spans = vec![Span::styled(t.quality_label, focused_style(quality_focus))];
     for (i, q) in QualityPreset::ALL.iter().enumerate() {
         if i > 0 {
@@ -95,7 +110,7 @@ fn draw_options(frame: &mut Frame, area: Rect, app: &App) {
         t.quality_hint,
         Style::default().fg(Color::DarkGray),
     ));
-    frame.render_widget(Paragraph::new(Line::from(quality_spans)), rows[1]);
+    frame.render_widget(Paragraph::new(Line::from(quality_spans)), rows[2]);
 
     let mut audio_spans = vec![Span::styled(t.audio_label, focused_style(audio_focus))];
     for (i, f) in crate::models::AudioFormat::ALL.iter().enumerate() {
@@ -104,7 +119,13 @@ fn draw_options(frame: &mut Frame, area: Rect, app: &App) {
         }
         audio_spans.push(pill(f.label(t), app.audio_format == *f, audio_focus));
     }
-    frame.render_widget(Paragraph::new(Line::from(audio_spans)), rows[2]);
+    if app.profile == crate::models::OutputProfile::WhatsApp {
+        audio_spans.push(Span::styled(
+            t.profile_audio_forced_hint,
+            Style::default().fg(Color::DarkGray),
+        ));
+    }
+    frame.render_widget(Paragraph::new(Line::from(audio_spans)), rows[3]);
 
     let out = format!("{}{}", t.output_label, app.config.output_dir.display());
     let confirm = if confirm_focus {
@@ -123,7 +144,7 @@ fn draw_options(frame: &mut Frame, area: Rect, app: &App) {
             Span::styled(out, Style::default().fg(Color::Gray)),
             confirm,
         ])),
-        rows[3],
+        rows[4],
     );
 }
 

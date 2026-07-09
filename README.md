@@ -76,10 +76,19 @@ cd ytui-dl && cargo install --path .
 ## Usage
 
 1. Paste a YouTube URL on the home screen.
-2. Choose **Video** or **Audio** (`v` / `a`) and quality (`1`–`5`).
+2. Choose **Video** or **Audio** (`v` / `a`), **profile**, and quality (`1`–`5`).
 3. `Enter` fetches metadata (title, channel, duration).
 4. On preview, `Enter` enqueues and starts the download.
 5. Track progress in **Queue** (`f`).
+
+### Output profiles
+
+| Profile | Use when | Notes |
+|---------|----------|--------|
+| **Best quality** (default) | Archiving / watching | May use VP9/AV1 + Opus |
+| **Compatible · WhatsApp** | Sending on WhatsApp / picky apps | Prefers H.264 + AAC; may re-encode via ffmpeg (`w` key) |
+
+WhatsApp profile requires **ffmpeg**.
 
 ### Language
 
@@ -97,7 +106,8 @@ language = "en"    # or "pt-BR"
 |-----|--------|
 | `Enter` | Fetch / confirm download |
 | `v` / `a` | Video / audio mode |
-| `←` / `→` | Cycle quality or audio format |
+| `w` / `b` | WhatsApp / Best quality profile |
+| `←` / `→` | Cycle quality, audio, or profile (when focused) |
 | `1`–`5` | Quality presets (Best → Worst) |
 | `f` | Queue |
 | `s` | Settings |
@@ -117,6 +127,7 @@ File: `~/.config/ytui-dl/config.toml`
 output_dir = "/home/you/Downloads/ytui-dl"
 output_template = "%(title)s [%(id)s].%(ext)s"
 default_mode = "video"
+default_profile = "best"   # or "whats_app" / "whatsapp"
 default_quality = "best"
 default_audio_format = "m4a"
 language = "en"

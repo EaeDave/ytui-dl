@@ -36,6 +36,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
                 let marker = if selected { "▸ " } else { "  " };
                 let title = truncate(job.display_title(), 48);
                 let mode = job.mode.label(t);
+                let profile = job.profile.label(t);
                 let line = Line::from(vec![
                     Span::raw(marker),
                     Span::styled(
@@ -53,7 +54,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
                         },
                     ),
                     Span::styled(
-                        format!("  ({mode})"),
+                        format!("  ({mode} · {profile})"),
                         Style::default().fg(Color::DarkGray),
                     ),
                 ]);

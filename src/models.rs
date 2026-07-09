@@ -39,6 +39,61 @@ impl MediaMode {
     }
 }
 
+/// How to encode/select formats for the final file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OutputProfile {
+    /// Best quality (VP9/AV1/Opus OK) — default for archiving.
+    #[default]
+    Best,
+    /// H.264 + AAC MP4 suitable for WhatsApp and picky players.
+    #[serde(alias = "compatible", alias = "whatsapp")]
+    WhatsApp,
+}
+
+impl OutputProfile {
+    pub const ALL: [Self; 2] = [Self::Best, Self::WhatsApp];
+
+    pub fn label(self, t: &Strings) -> &'static str {
+        match self {
+            Self::Best => t.profile_best,
+            Self::WhatsApp => t.profile_whatsapp,
+        }
+    }
+
+    pub fn toggle(self) -> Self {
+        match self {
+            Self::Best => Self::WhatsApp,
+            Self::WhatsApp => Self::Best,
+        }
+    }
+
+    /// yt-dlp `-f` selector for video mode.
+    pub fn video_format_selector(self, quality: QualityPreset) -> String {
+        match self {
+            Self::Best => quality.format_selector().to_string(),
+            Self::WhatsApp => {
+                // Prefer H.264 + AAC; fall back to any stream (recode will fix).
+                let height = match quality {
+                    QualityPreset::Best => None,
+                    QualityPreset::P1080 => Some(1080),
+                    QualityPreset::P720 => Some(720),
+                    QualityPreset::P480 => Some(480),
+                    QualityPreset::Worst => Some(360),
+                };
+                match height {
+                    None => {
+                        "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[ext=mp4]/bv*+ba/b".into()
+                    }
+                    Some(h) => format!(
+                        "bv*[vcodec^=avc1][height<={h}]+ba[acodec^=mp4a]/b[ext=mp4][height<={h}]/bv*[height<={h}]+ba/b"
+                    ),
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QualityPreset {
@@ -198,6 +253,7 @@ pub enum Focus {
     #[default]
     UrlInput,
     Mode,
+    Profile,
     Quality,
     AudioFormat,
     Confirm,
@@ -242,6 +298,7 @@ pub struct DownloadJob {
     pub id: Uuid,
     pub url: String,
     pub mode: MediaMode,
+    pub profile: OutputProfile,
     pub quality: QualityPreset,
     pub audio_format: AudioFormat,
     pub status: JobStatus,
@@ -258,6 +315,7 @@ impl DownloadJob {
     pub fn new(
         url: String,
         mode: MediaMode,
+        profile: OutputProfile,
         quality: QualityPreset,
         audio_format: AudioFormat,
         title: Option<String>,
@@ -266,6 +324,7 @@ impl DownloadJob {
             id: Uuid::new_v4(),
             url,
             mode,
+            profile,
             quality,
             audio_format,
             status: JobStatus::Queued,

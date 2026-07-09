@@ -76,10 +76,19 @@ cd ytui-dl && cargo install --path .
 ## Uso
 
 1. Cole a URL do YouTube na tela inicial.
-2. Escolha **Vídeo** ou **Áudio** (`v` / `a`) e a qualidade (`1`–`5`).
+2. Escolha **Vídeo** ou **Áudio** (`v` / `a`), o **perfil** e a qualidade (`1`–`5`).
 3. `Enter` busca metadados (título, canal, duração).
 4. No preview, `Enter` enfileira e inicia o download.
 5. Acompanhe em **Fila** (`f`).
+
+### Perfis de saída
+
+| Perfil | Quando usar | Notas |
+|--------|-------------|--------|
+| **Melhor qualidade** (padrão) | Guardar / assistir | Pode ser VP9/AV1 + Opus |
+| **Compatível · WhatsApp** | Enviar no Zap / apps chatos | Prefere H.264 + AAC; pode reencode via ffmpeg (tecla `w`) |
+
+Perfil WhatsApp exige **ffmpeg**.
 
 ### Idioma
 
@@ -97,7 +106,8 @@ language = "pt-BR"    # ou "en"
 |-------|------|
 | `Enter` | Buscar / confirmar download |
 | `v` / `a` | Modo vídeo / áudio |
-| `←` / `→` | Alternar qualidade ou formato de áudio |
+| `w` / `b` | Perfil WhatsApp / Melhor qualidade |
+| `←` / `→` | Alternar qualidade, áudio ou perfil (com foco) |
 | `1`–`5` | Presets de qualidade (Melhor → Pior) |
 | `f` | Fila |
 | `s` | Configurações |
@@ -117,6 +127,7 @@ Arquivo: `~/.config/ytui-dl/config.toml`
 output_dir = "/home/voce/Downloads/ytui-dl"
 output_template = "%(title)s [%(id)s].%(ext)s"
 default_mode = "video"
+default_profile = "best"   # ou "whats_app" / "whatsapp"
 default_quality = "best"
 default_audio_format = "m4a"
 language = "pt-BR"

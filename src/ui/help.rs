@@ -32,6 +32,7 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &App) {
         key("Enter", t.help_enter),
         key("v / a", t.help_va),
         key("m", t.help_m),
+        key("w / b", "WhatsApp / Best quality profile"),
         key("1-5", t.help_quality),
         key("p", t.help_cancel),
         key("o", t.help_open),

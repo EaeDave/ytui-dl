@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::action::Action;
 use crate::error::{AppError, Result};
-use crate::models::{AudioFormat, MediaMode, QualityPreset, VideoInfo};
+use crate::models::{AudioFormat, MediaMode, OutputProfile, QualityPreset, VideoInfo};
 
 use super::progress::{parse_progress_line, PROGRESS_TEMPLATE};
 
@@ -100,6 +100,7 @@ pub struct DownloadRequest {
     pub job_id: Uuid,
     pub url: String,
     pub mode: MediaMode,
+    pub profile: OutputProfile,
     pub quality: QualityPreset,
     pub audio_format: AudioFormat,
     pub output_template: PathBuf,
@@ -149,19 +150,35 @@ pub async fn start_download(
     match req.mode {
         MediaMode::Video => {
             args.push("-f".into());
-            args.push(req.quality.format_selector().into());
-            // Prefer merge to mp4 when possible
+            args.push(req.profile.video_format_selector(req.quality));
             args.push("--merge-output-format".into());
             args.push("mp4".into());
+            if req.profile == OutputProfile::WhatsApp {
+                // Ensure final file is H.264 + AAC in MP4 (WhatsApp / picky players).
+                args.push("--recode-video".into());
+                args.push("mp4".into());
+                args.push("--ppa".into());
+                args.push(
+                    "VideoConvertor:-c:v libx264 -preset fast -crf 23 -profile:v baseline -level 3.1 -pix_fmt yuv420p -c:a aac -b:a 128k -ac 2 -movflags +faststart".into(),
+                );
+            }
         }
         MediaMode::Audio => {
             args.push("-x".into());
-            if let Some(fmt) = req.audio_format.yt_dlp_arg() {
+            let audio_fmt = match req.profile {
+                // WhatsApp chat audio: AAC in M4A is the most reliable.
+                OutputProfile::WhatsApp => Some("m4a"),
+                OutputProfile::Best => req.audio_format.yt_dlp_arg(),
+            };
+            if let Some(fmt) = audio_fmt {
                 args.push("--audio-format".into());
                 args.push(fmt.into());
             }
             args.push("-f".into());
-            args.push("ba/b".into());
+            args.push(match req.profile {
+                OutputProfile::WhatsApp => "ba[acodec^=mp4a]/ba/b".into(),
+                OutputProfile::Best => "ba/b".into(),
+            });
         }
     }
 
@@ -170,6 +187,8 @@ pub async fn start_download(
             args.push("--ffmpeg-location".into());
             args.push(dir.display().to_string());
         }
+    } else if req.profile == OutputProfile::WhatsApp {
+        // Recode / merge need ffmpeg; surface a clear failure from yt-dlp if missing.
     }
 
     args.push("--".into());
