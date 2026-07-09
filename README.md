@@ -43,10 +43,12 @@ ytui-dl
 #### Update / force / uninstall
 
 ```bash
-# Update if a newer release is available (default)
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+# Preferred after first install
+ytui-dl --update
+ytui-dl --update --force   # reinstall same version
 
-# Reinstall even on the same version
+# Or via install script
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --force
 
 # Installed vs remote
@@ -108,7 +110,7 @@ language = "en"    # or "pt-BR"
 | `?` | Help |
 | `q` | Quit |
 
-On startup, ytui-dl checks GitHub Releases in the background. If a newer version is available, a yellow badge appears in the header; press **`u`** for the one-line install command, then quit and re-run it.
+On startup, ytui-dl checks GitHub Releases in the background. If a newer version is available, a yellow badge appears in the header; press **`u`** for the command, then quit and run **`ytui-dl --update`**.
 
 ## Configuration
 

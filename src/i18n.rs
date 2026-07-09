@@ -481,10 +481,10 @@ impl Language {
     pub fn msg_update_available(self, version: &str) -> String {
         match self {
             Self::En => format!(
-                "Update available: v{version}  ·  press u for install command"
+                "Update available: v{version}  ·  press u  ·  or quit and run: ytui-dl --update"
             ),
             Self::PtBr => format!(
-                "Atualização disponível: v{version}  ·  pressione u para o comando"
+                "Atualização disponível: v{version}  ·  pressione u  ·  ou saia e rode: ytui-dl --update"
             ),
         }
     }

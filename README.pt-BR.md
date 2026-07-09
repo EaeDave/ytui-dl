@@ -43,10 +43,12 @@ ytui-dl
 #### Atualizar / forçar / desinstalar
 
 ```bash
-# Atualiza se houver release mais recente (padrão)
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+# Preferido depois da primeira instalação
+ytui-dl --update
+ytui-dl --update --force   # reinstala a mesma versão
 
-# Reinstala mesmo na mesma versão
+# Ou via script
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --force
 
 # Instalado vs remote
@@ -108,7 +110,7 @@ language = "pt-BR"    # ou "en"
 | `?` | Ajuda |
 | `q` | Sair |
 
-Na abertura, o ytui-dl consulta as GitHub Releases em background. Se houver versão mais nova, um badge amarelo aparece no header; pressione **`u`** para ver o comando de instalação, saia e rode de novo.
+Na abertura, o ytui-dl consulta as GitHub Releases em background. Se houver versão mais nova, um badge amarelo aparece no header; pressione **`u`**, saia e rode **`ytui-dl --update`**.
 
 ## Configuração
 

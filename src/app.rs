@@ -732,7 +732,7 @@ impl App {
     }
 
     fn show_update_help(&mut self) {
-        let cmd = crate::updater::install_command();
+        let cmd = crate::updater::update_hint_command();
         if let Some(ver) = &self.update_available {
             self.status_message = self.lang().msg_update_howto(ver, cmd);
         } else {

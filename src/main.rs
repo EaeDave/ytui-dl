@@ -33,9 +33,12 @@ ytui-dl {VERSION} — YouTube TUI downloader
 Usage:
   ytui-dl              Start the TUI
   ytui-dl --version    Print version
+  ytui-dl --update     Download and install the latest GitHub release
+  ytui-dl --update --force
+                       Reinstall even if already on the latest version
   ytui-dl --help       Print this help
 
-Install / update / uninstall (from the repo script):
+Install / uninstall (script):
   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash -s -- --uninstall
 "
@@ -44,15 +47,23 @@ Install / update / uninstall (from the repo script):
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut args = std::env::args().skip(1);
-    if let Some(arg) = args.next() {
-        match arg.as_str() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(arg) = args.first().map(|s| s.as_str()) {
+        match arg {
             "-V" | "--version" | "version" => {
                 print_version();
                 return Ok(());
             }
             "-h" | "--help" | "help" => {
                 print_cli_help();
+                return Ok(());
+            }
+            "--update" | "update" => {
+                let force = args.iter().any(|a| a == "--force" || a == "-f");
+                if let Err(e) = updater::run_self_update(force).await {
+                    eprintln!("error: {e:#}");
+                    std::process::exit(1);
+                }
                 return Ok(());
             }
             other => {
