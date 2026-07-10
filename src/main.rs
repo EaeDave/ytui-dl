@@ -44,8 +44,8 @@ Usage:
   ytd --help       Print this help
 
 First-time install:
-  Linux:   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
-  Windows: irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
+  Linux:   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytd/main/install.sh | bash
+  Windows: irm https://raw.githubusercontent.com/EaeDave/ytd/main/install.ps1 | iex
 
 If the TUI opens and closes with no message, run:
   ytd --doctor

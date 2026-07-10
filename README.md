@@ -39,7 +39,7 @@ winget install yt-dlp.yt-dlp Gyan.FFmpeg
 Installs **`ytd`** to **`~/.local/bin/`**:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytd/main/install.sh | bash
 ```
 
 #### Windows (PowerShell)
@@ -47,7 +47,7 @@ curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | b
 Installs to **`%LOCALAPPDATA%\ytd\bin\ytd.exe`**, adds that folder to your user `PATH`, and can install **yt-dlp / ffmpeg** via winget (asks Y/n):
 
 ```powershell
-irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/EaeDave/ytd/main/install.ps1 | iex
 ```
 
 Then **open a new Windows Terminal** (or run the full path once):
@@ -84,7 +84,7 @@ ytd --update --force
 ytd --uninstall        # binary only; keeps config & downloads
 
 # Linux install script alternatives
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytd/main/install.sh | bash
 curl -fsSL ... | bash -s -- --uninstall
 
 # Windows: re-run install.ps1, or:
@@ -105,10 +105,10 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # or ~/.zshrc
 ### Build from source
 
 ```bash
-cargo install --git https://github.com/EaeDave/ytui-dl
+cargo install --git https://github.com/EaeDave/ytd
 # or
-git clone https://github.com/EaeDave/ytui-dl
-cd ytui-dl && cargo install --path .
+git clone https://github.com/EaeDave/ytd
+cd ytd && cargo install --path .
 ```
 
 ## Usage
@@ -178,7 +178,7 @@ Default output: `~/Downloads/ytd/` (or home if Downloads is missing).
 
 ## Releases
 
-Official binaries: [GitHub Releases](https://github.com/EaeDave/ytui-dl/releases)
+Official binaries: [GitHub Releases](https://github.com/EaeDave/ytd/releases)
 
 | Asset | Platform |
 |-------|----------|

@@ -37,7 +37,7 @@ winget install yt-dlp.yt-dlp Gyan.FFmpeg
 #### Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/EaeDave/ytd/main/install.sh | bash
 # → ~/.local/bin/ytd
 ```
 
@@ -46,7 +46,7 @@ curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | b
 Instala em **`%LOCALAPPDATA%\ytd\bin\ytd.exe`**, coloca no PATH e pode instalar **yt-dlp / ffmpeg** via winget (pergunta Y/n):
 
 ```powershell
-irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/EaeDave/ytd/main/install.ps1 | iex
 ```
 
 Depois **abra um novo Windows Terminal** (ou use o caminho completo):
@@ -85,7 +85,7 @@ ytd --uninstall
 ### Build a partir do código
 
 ```bash
-cargo install --git https://github.com/EaeDave/ytui-dl
+cargo install --git https://github.com/EaeDave/ytd
 ```
 
 ## Uso
@@ -155,7 +155,7 @@ Padrão de saída: `~/Downloads/ytd/` (ou home se Downloads não existir).
 
 ## Releases
 
-Binários oficiais: [GitHub Releases](https://github.com/EaeDave/ytui-dl/releases)
+Binários oficiais: [GitHub Releases](https://github.com/EaeDave/ytd/releases)
 
 ## Stack
 

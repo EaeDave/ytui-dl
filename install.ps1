@@ -1,6 +1,6 @@
 # ytd installer for Windows (PowerShell 5+)
 #
-#   irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/EaeDave/ytd/main/install.ps1 | iex
 #
 # Installs to: %LOCALAPPDATA%\ytd\bin\ytd.exe
 # Adds that folder to the *current session* PATH and the user PATH permanently.
@@ -9,7 +9,7 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Repo = "EaeDave/ytui-dl"
+$Repo = "EaeDave/ytd"
 $BinName = "ytd.exe"
 $Asset = "ytd-x86_64-pc-windows-msvc.exe"
 $InstallDir = Join-Path $env:LOCALAPPDATA "ytd\bin"
@@ -189,7 +189,7 @@ foreach ($arg in $args) {
             Write-Host @"
 ytd Windows installer
 
-  irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
+  irm https://raw.githubusercontent.com/EaeDave/ytd/main/install.ps1 | iex
 
   .\install.ps1 --force | --uninstall | --check | --skip-deps
 "@

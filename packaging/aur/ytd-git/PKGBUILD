@@ -1,17 +1,17 @@
 # Maintainer: EaeDave <202521901+EaeDave at users dot noreply dot github dot com>
 
-pkgname=ytui-dl-git
-pkgver=0.1.0.r0.g8fb340e
+pkgname=ytd-git
+pkgver=0.5.0.r0.g2d4e4e7
 pkgrel=1
 pkgdesc="YouTube TUI downloader powered by yt-dlp"
 arch=('x86_64')
-url="https://github.com/EaeDave/ytui-dl"
+url="https://github.com/EaeDave/ytd"
 license=('MIT')
 depends=('gcc-libs' 'yt-dlp')
 optdepends=('ffmpeg: merge video/audio streams and convert audio formats')
 makedepends=('cargo' 'git')
 provides=('ytd')
-conflicts=('ytd' 'ytui-dl')
+conflicts=('ytd' 'ytui-dl' 'ytui-dl-git')
 options=('!lto')
 source=("$pkgname::git+$url.git")
 sha256sums=('SKIP')
@@ -21,10 +21,9 @@ pkgver() {
   local tag
   tag=$(git describe --tags --abbrev=0 2>/dev/null || true)
   if [[ -n $tag ]]; then
-    # e.g. v0.1.0-3-gabcdef1 → 0.1.0.r3.gabcdef1
     git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
   else
-    printf "0.1.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+    printf "0.5.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
   fi
 }
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ytd installer — install / update / uninstall
 #
-#   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytd/main/install.sh | bash
 #   curl -fsSL ... | bash -s -- --uninstall
 #   curl -fsSL ... | bash -s -- --force
 set -euo pipefail
 
-readonly REPO="EaeDave/ytui-dl"
+readonly REPO="EaeDave/ytd"
 readonly BIN_NAME="ytd"
 readonly GITHUB_API="https://api.github.com/repos/${REPO}"
 readonly GITHUB_RELEASES="https://github.com/${REPO}/releases"
@@ -41,7 +41,7 @@ Options:
   -h, --help      Show this help
 
 Examples:
-  curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/EaeDave/ytd/main/install.sh | bash
   curl -fsSL ... | bash -s -- --force
   curl -fsSL ... | bash -s -- --uninstall
   curl -fsSL ... | bash -s -- --system

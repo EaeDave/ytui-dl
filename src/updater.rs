@@ -14,7 +14,7 @@ use tokio::time::timeout;
 
 use crate::action::Action;
 
-const REPO: &str = "EaeDave/ytui-dl";
+const REPO: &str = "EaeDave/ytd";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const USER_AGENT: &str = "ytd-update";
 
