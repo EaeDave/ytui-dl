@@ -1,8 +1,9 @@
-# ytui-dl installer for Windows (PowerShell 5+)
+# ytd installer for Windows (PowerShell 5+)
+# Repo/package: ytui-dl · day-to-day command: ytd (alias: ytui-dl.exe)
 #
 #   irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 #
-# Installs to: %LOCALAPPDATA%\ytui-dl\bin\ytui-dl.exe
+# Installs to: %LOCALAPPDATA%\ytui-dl\bin\ytd.exe  (+ ytui-dl.exe alias)
 # Adds that folder to the *current session* PATH and the user PATH permanently.
 # Optionally installs yt-dlp + ffmpeg via winget (asks Y/n).
 
@@ -10,10 +11,12 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 $Repo = "EaeDave/ytui-dl"
-$BinName = "ytui-dl.exe"
+$BinName = "ytd.exe"
+$LegacyBinName = "ytui-dl.exe"
 $Asset = "ytui-dl-x86_64-pc-windows-msvc.exe"
 $InstallDir = Join-Path $env:LOCALAPPDATA "ytui-dl\bin"
 $InstallPath = Join-Path $InstallDir $BinName
+$LegacyPath = Join-Path $InstallDir $LegacyBinName
 
 function Write-Info([string]$msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Write-Warn([string]$msg) { Write-Host "!!  $msg" -ForegroundColor Yellow }
@@ -68,7 +71,7 @@ function Ensure-UserPath([string]$dir) {
     if ($parts -notcontains $dir) {
         $newPath = if ($userPath.TrimEnd(";")) { "$userPath;$dir" } else { $dir }
         [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-        Write-Warn "Added $dir to your user PATH (new terminals will see ytui-dl)"
+        Write-Warn "Added $dir to your user PATH (new terminals will see ytd)"
     }
 
     # 2) Current session PATH (critical — parent shells won't get this unless we set it here)
@@ -185,7 +188,7 @@ foreach ($arg in $args) {
         "^--skip-deps$" { $SkipDeps = $true }
         "^--help$|^-h$" {
             Write-Host @"
-ytui-dl Windows installer
+ytd Windows installer (command: ytd, alias: ytui-dl)
 
   irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 
@@ -198,13 +201,18 @@ ytui-dl Windows installer
 
 try {
     if ($Uninstall) {
-        if (Test-Path $InstallPath) {
-            Remove-Item -Force $InstallPath
-            Write-Info "removed $InstallPath"
-            Write-Info "config/downloads were not removed"
-        } else {
+        $removed = $false
+        foreach ($p in @($InstallPath, $LegacyPath)) {
+            if (Test-Path $p) {
+                Remove-Item -Force $p
+                Write-Info "removed $p"
+                $removed = $true
+            }
+        }
+        if (-not $removed) {
             Die "not installed at $InstallPath"
         }
+        Write-Info "config/downloads were not removed"
         return
     }
 
@@ -215,10 +223,14 @@ try {
     Write-Info "latest release: $remote"
 
     $localVer = $null
-    if (Test-Path $InstallPath) {
+    foreach ($probe in @($InstallPath, $LegacyPath)) {
+        if (-not (Test-Path $probe)) { continue }
         try {
-            $out = & $InstallPath --version 2>$null
-            if ("$out" -match "([\d.]+)\s*$") { $localVer = $Matches[1] }
+            $out = & $probe --version 2>$null
+            if ("$out" -match "([\d.]+)\s*$") {
+                $localVer = $Matches[1]
+                break
+            }
         } catch {}
     }
 
@@ -234,7 +246,7 @@ try {
             Ensure-UserPath $InstallDir
             if (-not $SkipDeps) { Ensure-RuntimeDeps }
             Write-Host ""
-            Write-Info "run: ytui-dl   or   & `"$InstallPath`""
+            Write-Info "run: ytd   or   & `"$InstallPath`""
             return
         }
         Write-Info "updating $localVer → $remote"
@@ -274,21 +286,22 @@ try {
         New-Item -ItemType Directory -Path $InstallDir | Out-Null
     }
 
-    $old = "$InstallPath.old"
-    if (Test-Path $InstallPath) {
-        try {
-            if (Test-Path $old) { Remove-Item -Force $old }
-            Rename-Item -Force $InstallPath $old
-        } catch {
-            Write-Warn "could not rename existing binary (close ytui-dl if running): $($_.Exception.Message)"
+    foreach ($target in @($InstallPath, $LegacyPath)) {
+        $old = "$target.old"
+        if (Test-Path $target) {
+            try {
+                if (Test-Path $old) { Remove-Item -Force $old }
+                Rename-Item -Force $target $old
+            } catch {
+                Write-Warn "could not rename existing binary (close ytd if running): $($_.Exception.Message)"
+            }
+        }
+        Copy-Item -Force $tmp $target
+        if (Test-Path $old) {
+            Remove-Item -Force $old -ErrorAction SilentlyContinue
         }
     }
-
-    Copy-Item -Force $tmp $InstallPath
     Remove-Item -Force $tmp -ErrorAction SilentlyContinue
-    if (Test-Path $old) {
-        Remove-Item -Force $old -ErrorAction SilentlyContinue
-    }
 
     Ensure-UserPath $InstallDir
 
@@ -329,9 +342,11 @@ try {
     Write-Host ""
     Write-Host "================================================" -ForegroundColor Green
     Write-Info "done!"
+    Write-Host "  Command:    ytd" -ForegroundColor White
+    Write-Host "  Alias:      ytui-dl  (same app)" -ForegroundColor DarkGray
     Write-Host "  Full path:  & `"$InstallPath`"" -ForegroundColor White
-    Write-Host "  Or reopen Windows Terminal and run:  ytui-dl" -ForegroundColor White
-    Write-Host "  If nothing appears:  ytui-dl --doctor" -ForegroundColor Yellow
+    Write-Host "  Or reopen Windows Terminal and run:  ytd" -ForegroundColor White
+    Write-Host "  If nothing appears:  ytd --doctor" -ForegroundColor Yellow
     Write-Host "  Log file:  $env:LOCALAPPDATA\ytui-dl\last-run.log" -ForegroundColor DarkGray
     Write-Host "================================================" -ForegroundColor Green
     Write-Host ""

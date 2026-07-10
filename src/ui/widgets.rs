@@ -42,7 +42,7 @@ pub fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
 
     let mut spans = vec![
         Span::styled(
-            " ▶ ytui-dl ",
+            " ▶ ytd ",
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Magenta)

@@ -1,7 +1,7 @@
 //! Diagnostics for silent failures (especially Windows).
 //!
 //! Always writes a breadcrumb log so we can see what happened even when the
-//! console shows nothing. `ytui-dl --doctor` runs a full self-check.
+//! console shows nothing. `ytd --doctor` runs a full self-check.
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, IsTerminal, Write};
@@ -46,7 +46,7 @@ pub fn breadcrumb(msg: &str) {
     }
     // Also mirror to stderr when YTUI_DEBUG is set.
     if std::env::var_os("YTUI_DEBUG").is_some() {
-        let _ = writeln!(io::stderr(), "[ytui-dl debug] {msg}");
+        let _ = writeln!(io::stderr(), "[ytd debug] {msg}");
         let _ = io::stderr().flush();
     }
 }
@@ -61,7 +61,7 @@ pub fn begin_run(args: &[String]) {
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "(unknown)".into());
     let header = format!(
-        "=== ytui-dl {VERSION} start ===\nexe={exe}\nargs={args:?}\nos={}\narch={}\n",
+        "=== ytd {VERSION} start ===\nexe={exe}\nargs={args:?}\nos={}\narch={}\n",
         std::env::consts::OS,
         std::env::consts::ARCH,
     );
@@ -78,8 +78,8 @@ pub fn run_doctor() -> Result<()> {
     begin_run(&["--doctor".into()]);
     breadcrumb("doctor start");
 
-    println!("ytui-dl doctor {VERSION}");
-    println!("========================");
+    println!("ytd doctor {VERSION}");
+    println!("====================");
 
     let exe = std::env::current_exe().wrap_err("current_exe")?;
     println!("executable : {}", exe.display());
@@ -103,7 +103,7 @@ pub fn run_doctor() -> Result<()> {
     if !stdout_tty {
         println!();
         println!("WARN: stdout is not a TTY — the interactive TUI will refuse to start.");
-        println!("      Open Windows Terminal / conhost and run: ytui-dl");
+        println!("      Open Windows Terminal / conhost and run: ytd");
         breadcrumb("doctor: stdout not a tty");
     }
 
@@ -158,7 +158,7 @@ pub fn run_doctor() -> Result<()> {
             // Visible marker on the alternate buffer (user may see a flash).
             let _ = write!(
                 io::stdout(),
-                "\r\n  ytui-dl doctor: alternate screen OK — restoring…\r\n"
+                "\r\n  ytd doctor: alternate screen OK — restoring…\r\n"
             );
             let _ = io::stdout().flush();
             std::thread::sleep(std::time::Duration::from_millis(400));
@@ -183,7 +183,7 @@ pub fn run_doctor() -> Result<()> {
 
     println!();
     println!("Doctor finished successfully.");
-    println!("If plain `ytui-dl` still shows nothing, paste the contents of:");
+    println!("If plain `ytd` still shows nothing, paste the contents of:");
     println!("  {}", log_path().display());
     breadcrumb("doctor done ok");
     Ok(())

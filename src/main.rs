@@ -25,30 +25,32 @@ use crate::tui::Tui;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn print_version() {
-    println!("ytui-dl {VERSION}");
+    println!("ytd {VERSION}");
 }
 
 fn print_cli_help() {
     println!(
         "\
-ytui-dl {VERSION} — YouTube TUI downloader
+ytd {VERSION} — YouTube TUI downloader (formerly ytui-dl)
 
 Usage:
-  ytui-dl              Start the TUI
-  ytui-dl --version    Print version
-  ytui-dl --doctor     Self-check (TTY, raw mode, PATH tools) + write last-run.log
-  ytui-dl --update     Download and install the latest GitHub release
-  ytui-dl --update --force
-                       Reinstall even if already on the latest version
-  ytui-dl --uninstall  Remove the installed binary (keeps config/downloads)
-  ytui-dl --help       Print this help
+  ytd              Start the TUI
+  ytd --version    Print version
+  ytd --doctor     Self-check (TTY, raw mode, PATH tools) + write last-run.log
+  ytd --update     Download and install the latest GitHub release
+  ytd --update --force
+                   Reinstall even if already on the latest version
+  ytd --uninstall  Remove the installed binary (keeps config/downloads)
+  ytd --help       Print this help
+
+  Alias: ytui-dl  (same binary; still installed for compatibility)
 
 First-time install:
   Linux:   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
   Windows: irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 
 If the TUI opens and closes with no message, run:
-  ytui-dl --doctor
+  ytd --doctor
   type %LOCALAPPDATA%\\ytui-dl\\last-run.log     (Windows)
   cat ~/.local/share/ytui-dl/last-run.log       (Linux)
 "
@@ -61,7 +63,7 @@ async fn main() {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         diag::breadcrumb(&format!("PANIC: {info}"));
-        eprintln!("ytui-dl panic: {info}");
+        eprintln!("ytd panic: {info}");
         let _ = io::stderr().flush();
         default_hook(info);
     }));
@@ -69,7 +71,7 @@ async fn main() {
     if let Err(e) = run().await {
         diag::breadcrumb(&format!("fatal error: {e:#}"));
         // Always surface errors — some Windows hosts swallow panics poorly.
-        eprintln!("ytui-dl error: {e:#}");
+        eprintln!("ytd error: {e:#}");
         eprintln!("(details: {})", diag::log_path().display());
         let _ = io::stderr().flush();
         std::process::exit(1);
@@ -107,7 +109,7 @@ async fn run() -> Result<()> {
                 return Ok(());
             }
             other => {
-                bail!("unknown argument: {other}\ntry: ytui-dl --help");
+                bail!("unknown argument: {other}\ntry: ytd --help");
             }
         }
     }
@@ -121,9 +123,9 @@ async fn run() -> Result<()> {
     if !stdout_tty {
         bail!(
             "stdout is not an interactive terminal.\n\
-             Open Windows Terminal (or conhost) and run: ytui-dl\n\
-             Or check the binary with: ytui-dl --version\n\
-             Or run diagnostics: ytui-dl --doctor"
+             Open Windows Terminal (or conhost) and run: ytd\n\
+             Or check the binary with: ytd --version\n\
+             Or run diagnostics: ytd --doctor"
         );
     }
 
@@ -144,7 +146,7 @@ async fn run() -> Result<()> {
     diag::breadcrumb("Tui::new ok");
     tui.enter().wrap_err(
         "enter TUI mode — on Windows, prefer Windows Terminal over legacy console.\n\
-         Run: ytui-dl --doctor",
+         Run: ytd --doctor",
     )?;
     diag::breadcrumb("tui.enter ok");
 
@@ -193,7 +195,7 @@ async fn run() -> Result<()> {
         diag::breadcrumb("reexec restart");
         if let Err(e) = updater::reexec_self(restart_path) {
             eprintln!("error: could not restart: {e:#}");
-            eprintln!("launch manually: ytui-dl");
+            eprintln!("launch manually: ytd");
             std::process::exit(1);
         }
     }

@@ -1,6 +1,8 @@
-# ytui-dl
+# ytd
 
 **YouTube in the terminal.** A Rust TUI for downloading YouTube videos and audio.
+
+**Command:** `ytd` · *(legacy alias: `ytui-dl`)* · Repo package name remains **ytui-dl**.
 
 Backend: **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** · UI: **[Ratatui](https://ratatui.rs/)**
 
@@ -34,7 +36,7 @@ winget install yt-dlp.yt-dlp Gyan.FFmpeg
 
 #### Linux
 
-Installs to **`~/.local/bin/ytui-dl`**:
+Installs **`ytd`** (and alias **`ytui-dl`**) to **`~/.local/bin/`**:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
@@ -42,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | b
 
 #### Windows (PowerShell)
 
-Installs to **`%LOCALAPPDATA%\ytui-dl\bin\ytui-dl.exe`**, adds that folder to your user `PATH`, and can install **yt-dlp / ffmpeg** via winget (asks Y/n):
+Installs to **`%LOCALAPPDATA%\ytui-dl\bin\ytd.exe`** (+ `ytui-dl.exe` alias), adds that folder to your user `PATH`, and can install **yt-dlp / ffmpeg** via winget (asks Y/n):
 
 ```powershell
 irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
@@ -51,42 +53,43 @@ irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 Then **open a new Windows Terminal** (or run the full path once):
 
 ```powershell
-& "$env:LOCALAPPDATA\ytui-dl\bin\ytui-dl.exe"
+& "$env:LOCALAPPDATA\ytui-dl\bin\ytd.exe"
 ```
 
-The installer updates your user `PATH`; existing shells may not see `ytui-dl` until you open a new one.
+The installer updates your user `PATH`; existing shells may not see `ytd` until you open a new one.
 
 Use [Windows Terminal](https://aka.ms/terminal) for the best TUI experience.
 
-If `ytui-dl --version` prints nothing and `$LASTEXITCODE` is `-1073741515`, the process is dying with **STATUS_DLL_NOT_FOUND** (missing MSVC runtime). From **v0.4.2** the Windows release is linked with a static CRT so this should not happen. On older builds:
+If `ytd --version` prints nothing and `$LASTEXITCODE` is `-1073741515`, the process is dying with **STATUS_DLL_NOT_FOUND** (missing MSVC runtime). From **v0.4.2** the Windows release is linked with a static CRT so this should not happen. On older builds:
 
 ```powershell
 winget install -e --id Microsoft.VCRedist.2015+.x64
 ```
 
-For any silent failure: `ytui-dl --doctor` and check `%LOCALAPPDATA%\ytui-dl\last-run.log`.
+For any silent failure: `ytd --doctor` and check `%LOCALAPPDATA%\ytui-dl\last-run.log`.
 
 #### After install
 
 ```bash
-ytui-dl
-ytui-dl --version
+ytd
+ytd --version
+# alias still works: ytui-dl --version
 ```
 
 #### Update / uninstall
 
 ```bash
 # Preferred after first install (Linux + Windows)
-ytui-dl --update
-ytui-dl --update --force
-ytui-dl --uninstall        # binary only; keeps config & downloads
+ytd --update
+ytd --update --force
+ytd --uninstall        # binary only; keeps config & downloads
 
 # Linux install script alternatives
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
 curl -fsSL ... | bash -s -- --uninstall
 
 # Windows: re-run install.ps1, or:
-# ytui-dl --uninstall
+# ytd --uninstall
 ```
 
 If the command is not found:
@@ -153,7 +156,7 @@ language = "en"    # or "pt-BR"
 | `?` | Help |
 | `q` | Quit |
 
-On startup (Linux), ytui-dl checks GitHub Releases in the background. If a newer version is available, a yellow badge appears in the header. Press **`u`** → confirm with **Enter** → install runs in the background (SHA256 + atomic replace) → **R** / **Enter** restarts into the new build. You can still use **`ytui-dl --update`** from the shell.
+On startup, **ytd** checks GitHub Releases in the background. If a newer version is available, a yellow badge appears in the header. Press **`u`** → confirm with **Enter** → install runs in the background (SHA256 + atomic replace) → **R** / **Enter** restarts into the new build. You can still use **`ytd --update`** from the shell.
 
 ## Configuration
 

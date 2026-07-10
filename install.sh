@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# ytui-dl installer — install / update / uninstall
+# ytd installer — install / update / uninstall
+# (repo/package name remains ytui-dl; command is ytd, with ytui-dl as alias)
 #
 #   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
 #   curl -fsSL ... | bash -s -- --uninstall
@@ -7,7 +8,8 @@
 set -euo pipefail
 
 readonly REPO="EaeDave/ytui-dl"
-readonly BIN_NAME="ytui-dl"
+readonly BIN_NAME="ytd"
+readonly LEGACY_NAME="ytui-dl"
 readonly GITHUB_API="https://api.github.com/repos/${REPO}"
 readonly GITHUB_RELEASES="https://github.com/${REPO}/releases"
 
@@ -25,17 +27,20 @@ die()   { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<EOF
-ytui-dl installer
+ytd installer (YouTube TUI downloader)
 
 Usage:
   install.sh [options]
+
+Installs command:  ytd
+Also installs:     ytui-dl  (compatibility alias)
 
 Options:
   --prefix DIR    Install prefix (default: ~/.local → binary in DIR/bin)
   --bin-dir DIR   Exact directory for the binary (overrides --prefix)
   --system        Install to /usr/local/bin (may require sudo)
   --force         Reinstall even if the same version is already installed
-  --uninstall     Remove ytui-dl from the install location
+  --uninstall     Remove ytd and ytui-dl from the install location
   --check         Show installed vs latest remote version
   --skip-deps     Do not offer to install yt-dlp / ffmpeg
   -h, --help      Show this help
@@ -194,17 +199,34 @@ check_path() {
 }
 
 do_uninstall() {
-  local path
+  local path legacy removed=0
   path="$(installed_path)"
-  if [[ ! -e "$path" ]]; then
-    if command -v "$BIN_NAME" >/dev/null 2>&1; then
-      path="$(command -v "$BIN_NAME")"
-    else
-      die "${BIN_NAME} não está instalado em $(installed_path)"
+  legacy="$(dirname "$path")/${LEGACY_NAME}"
+
+  for candidate in "$path" "$legacy"; do
+    if [[ -e "$candidate" ]]; then
+      info "removendo ${candidate}"
+      remove_file "$candidate"
+      removed=1
     fi
+  done
+
+  # Also drop PATH hits if they differ from install dir
+  for name in "$BIN_NAME" "$LEGACY_NAME"; do
+    if command -v "$name" >/dev/null 2>&1; then
+      local p
+      p="$(command -v "$name")"
+      if [[ -e "$p" ]]; then
+        info "removendo ${p}"
+        remove_file "$p" || true
+        removed=1
+      fi
+    fi
+  done
+
+  if [[ "$removed" -eq 0 ]]; then
+    die "${BIN_NAME} não está instalado em $(installed_path)"
   fi
-  info "removendo ${path}"
-  remove_file "$path"
   info "desinstalado."
   info "config (~/.config/ytui-dl) e downloads não foram removidos."
 }
@@ -288,11 +310,17 @@ do_install() {
 
   ensure_dir "$(dirname "$dest")"
   install_file "$bin_tmp" "$dest"
+  # Compatibility alias so `ytui-dl` still works
+  local legacy_dest
+  legacy_dest="$(dirname "$dest")/${LEGACY_NAME}"
+  install_file "$bin_tmp" "$legacy_dest"
   check_path
 
   local final_ver
   final_ver="$("$dest" --version 2>/dev/null | awk '{print $NF}' || echo "$remote_ver")"
   info "pronto: ${dest} (${final_ver})"
+  info "alias:  ${legacy_dest}"
+  info "rode:   ytd"
 
   if [[ "$SKIP_DEPS" -eq 0 ]]; then
     ensure_runtime_deps
@@ -327,7 +355,7 @@ ensure_runtime_deps() {
   printf "Install missing deps with the system package manager? [Y/n] "
   read -r ans || ans=n
   if [[ "$ans" =~ ^[nN] ]]; then
-    warn "skipped — ytui-dl needs yt-dlp on PATH"
+    warn "skipped — ytd needs yt-dlp on PATH"
     return 0
   fi
 

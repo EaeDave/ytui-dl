@@ -295,7 +295,7 @@ pub static EN: Strings = Strings {
     help_jk: "Navigate items",
     help_clear: "Clear finished items",
     help_update: "Update to latest release (confirm, then install)",
-    help_footer: "ytui-dl  ·  powered by yt-dlp  ·  Ratatui",
+    help_footer: "ytd  ·  powered by yt-dlp  ·  Ratatui",
 
     update_modal_title: "Update available",
     update_modal_confirm_keys: "  Enter / y = install now    Esc / n = cancel  ",
@@ -303,7 +303,7 @@ pub static EN: Strings = Strings {
     update_modal_working: "Updating…",
     update_modal_working_hint: "Please wait — do not close the terminal.",
     update_modal_done: "Update installed",
-    update_modal_restart_hint: "  Enter / R = restart ytui-dl now  ",
+    update_modal_restart_hint: "  Enter / R = restart ytd now  ",
     update_modal_quit_hint: "Esc / q = stay on this session (restart later)",
 
     status_paste_url: "Paste a YouTube URL and press Enter",
@@ -438,7 +438,7 @@ pub static PT_BR: Strings = Strings {
     help_jk: "Navegar itens",
     help_clear: "Limpar itens finalizados",
     help_update: "Atualizar para a última release (confirma e instala)",
-    help_footer: "ytui-dl  ·  powered by yt-dlp  ·  Ratatui",
+    help_footer: "ytd  ·  powered by yt-dlp  ·  Ratatui",
 
     update_modal_title: "Atualização disponível",
     update_modal_confirm_keys: "  Enter / y = instalar agora    Esc / n = cancelar  ",
@@ -446,7 +446,7 @@ pub static PT_BR: Strings = Strings {
     update_modal_working: "Atualizando…",
     update_modal_working_hint: "Aguarde — não feche o terminal.",
     update_modal_done: "Atualização instalada",
-    update_modal_restart_hint: "  Enter / R = reiniciar o ytui-dl agora  ",
+    update_modal_restart_hint: "  Enter / R = reiniciar o ytd agora  ",
     update_modal_quit_hint: "Esc / q = continuar nesta sessão (reinicie depois)",
 
     status_paste_url: "Cole uma URL do YouTube e pressione Enter",

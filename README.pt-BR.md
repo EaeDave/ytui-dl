@@ -1,6 +1,8 @@
-# ytui-dl
+# ytd
 
 **YouTube no terminal.** TUI em Rust para baixar vídeos e áudios do YouTube.
+
+**Comando:** `ytd` · *(alias legado: `ytui-dl`)* · O repositório/pacote continua **ytui-dl**.
 
 Backend: **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** · Interface: **[Ratatui](https://ratatui.rs/)**
 
@@ -36,12 +38,12 @@ winget install yt-dlp.yt-dlp Gyan.FFmpeg
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
-# → ~/.local/bin/ytui-dl
+# → ~/.local/bin/ytd  (+ alias ytui-dl)
 ```
 
 #### Windows (PowerShell)
 
-Instala em **`%LOCALAPPDATA%\ytui-dl\bin`**, coloca no PATH e pode instalar **yt-dlp / ffmpeg** via winget (pergunta Y/n):
+Instala em **`%LOCALAPPDATA%\ytui-dl\bin\ytd.exe`** (+ alias `ytui-dl.exe`), coloca no PATH e pode instalar **yt-dlp / ffmpeg** via winget (pergunta Y/n):
 
 ```powershell
 irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
@@ -50,34 +52,35 @@ irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 Depois **abra um novo Windows Terminal** (ou use o caminho completo):
 
 ```powershell
-& "$env:LOCALAPPDATA\ytui-dl\bin\ytui-dl.exe"
+& "$env:LOCALAPPDATA\ytui-dl\bin\ytd.exe"
 ```
 
-O instalador atualiza o PATH do usuário; terminais já abertos podem não achar `ytui-dl` até reabrir.
+O instalador atualiza o PATH do usuário; terminais já abertos podem não achar `ytd` até reabrir.
 
 Use o [Windows Terminal](https://aka.ms/terminal).
 
-Se `ytui-dl --version` não imprime nada e `$LASTEXITCODE` é `-1073741515`, o Windows está matando o processo com **STATUS_DLL_NOT_FOUND** (runtime MSVC ausente). A partir da **v0.4.2** o binário Windows não depende mais disso. Em builds antigas:
+Se `ytd --version` não imprime nada e `$LASTEXITCODE` é `-1073741515`, o Windows está matando o processo com **STATUS_DLL_NOT_FOUND** (runtime MSVC ausente). A partir da **v0.4.2** o binário Windows não depende mais disso. Em builds antigas:
 
 ```powershell
 winget install -e --id Microsoft.VCRedist.2015+.x64
 ```
 
-Se continuar mudo: `ytui-dl --doctor` e confira `%LOCALAPPDATA%\ytui-dl\last-run.log`.
+Se continuar mudo: `ytd --doctor` e confira `%LOCALAPPDATA%\ytui-dl\last-run.log`.
 
 #### Depois de instalar
 
 ```bash
-ytui-dl
-ytui-dl --version
+ytd
+ytd --version
+# alias ainda funciona: ytui-dl --version
 ```
 
 #### Atualizar / desinstalar
 
 ```bash
-ytui-dl --update
-ytui-dl --update --force
-ytui-dl --uninstall
+ytd --update
+ytd --update --force
+ytd --uninstall
 ```
 
 ### Build a partir do código
@@ -130,7 +133,7 @@ language = "pt-BR"    # ou "en"
 | `?` | Ajuda |
 | `q` | Sair |
 
-Na abertura (Linux), o ytui-dl consulta as GitHub Releases em background. Se houver versão mais nova, um badge amarelo aparece no header. Pressione **`u`** → confirme com **Enter** → a instalação roda em background (SHA256 + replace atômico) → **R** / **Enter** reinicia na build nova. Também existe **`ytui-dl --update`** no shell.
+Na abertura, o **ytd** consulta as GitHub Releases em background. Se houver versão mais nova, um badge amarelo aparece no header. Pressione **`u`** → confirme com **Enter** → a instalação roda em background (SHA256 + replace atômico) → **R** / **Enter** reinicia na build nova. Também existe **`ytd --update`** no shell.
 
 ## Configuração
 
