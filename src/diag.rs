@@ -22,7 +22,7 @@ pub fn data_dir() -> PathBuf {
     dirs::data_local_dir()
         .or_else(dirs::home_dir)
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("ytui-dl")
+        .join("ytd")
 }
 
 pub fn log_path() -> PathBuf {

@@ -7,7 +7,9 @@ use crate::error::{AppError, Result};
 use crate::i18n::Language;
 use crate::models::{AudioFormat, MediaMode, OutputProfile, QualityPreset};
 
-const APP_DIR: &str = "ytui-dl";
+const APP_DIR: &str = "ytd";
+/// Previous app id — read once for migration, never written again.
+const LEGACY_APP_DIR: &str = "ytui-dl";
 const CONFIG_FILE: &str = "config.toml";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,7 +75,7 @@ fn default_output_dir() -> PathBuf {
     dirs::download_dir()
         .or_else(dirs::home_dir)
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("ytui-dl")
+        .join(APP_DIR)
 }
 
 fn config_dir() -> Result<PathBuf> {
@@ -87,8 +89,27 @@ fn config_path() -> Result<PathBuf> {
     Ok(config_dir()?.join(CONFIG_FILE))
 }
 
+fn legacy_config_path() -> Option<PathBuf> {
+    dirs::config_dir().map(|b| b.join(LEGACY_APP_DIR).join(CONFIG_FILE))
+}
+
 fn load_from_disk() -> Result<Config> {
     let path = config_path()?;
-    let content = fs::read_to_string(&path)?;
-    toml::from_str(&content).map_err(|e| AppError::Config(e.to_string()))
+    if path.is_file() {
+        let content = fs::read_to_string(&path)?;
+        return toml::from_str(&content).map_err(|e| AppError::Config(e.to_string()));
+    }
+
+    // One-shot migrate preferences from the old ytui-dl config location.
+    if let Some(legacy) = legacy_config_path() {
+        if legacy.is_file() {
+            let content = fs::read_to_string(&legacy)?;
+            let cfg: Config =
+                toml::from_str(&content).map_err(|e| AppError::Config(e.to_string()))?;
+            let _ = cfg.save();
+            return Ok(cfg);
+        }
+    }
+
+    Err(AppError::Config("config not found".into()))
 }

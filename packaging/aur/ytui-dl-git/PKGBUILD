@@ -10,7 +10,7 @@ license=('MIT')
 depends=('gcc-libs' 'yt-dlp')
 optdepends=('ffmpeg: merge video/audio streams and convert audio formats')
 makedepends=('cargo' 'git')
-provides=('ytd' 'ytui-dl')
+provides=('ytd')
 conflicts=('ytd' 'ytui-dl')
 options=('!lto')
 source=("$pkgname::git+$url.git")
@@ -50,8 +50,6 @@ check() {
 package() {
   cd "$pkgname"
   install -Dm755 "target/release/ytd" "$pkgdir/usr/bin/ytd"
-  # Compatibility alias
-  ln -s ytd "$pkgdir/usr/bin/ytui-dl"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 }

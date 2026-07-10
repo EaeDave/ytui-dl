@@ -1,9 +1,8 @@
 # ytd installer for Windows (PowerShell 5+)
-# Repo/package: ytui-dl · day-to-day command: ytd (alias: ytui-dl.exe)
 #
 #   irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 #
-# Installs to: %LOCALAPPDATA%\ytui-dl\bin\ytd.exe  (+ ytui-dl.exe alias)
+# Installs to: %LOCALAPPDATA%\ytd\bin\ytd.exe
 # Adds that folder to the *current session* PATH and the user PATH permanently.
 # Optionally installs yt-dlp + ffmpeg via winget (asks Y/n).
 
@@ -12,11 +11,11 @@ $ProgressPreference = "SilentlyContinue"
 
 $Repo = "EaeDave/ytui-dl"
 $BinName = "ytd.exe"
-$LegacyBinName = "ytui-dl.exe"
-$Asset = "ytui-dl-x86_64-pc-windows-msvc.exe"
-$InstallDir = Join-Path $env:LOCALAPPDATA "ytui-dl\bin"
+$Asset = "ytd-x86_64-pc-windows-msvc.exe"
+$InstallDir = Join-Path $env:LOCALAPPDATA "ytd\bin"
 $InstallPath = Join-Path $InstallDir $BinName
-$LegacyPath = Join-Path $InstallDir $LegacyBinName
+$LegacyDir = Join-Path $env:LOCALAPPDATA "ytui-dl\bin"
+$LegacyPath = Join-Path $LegacyDir "ytui-dl.exe"
 
 function Write-Info([string]$msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Write-Warn([string]$msg) { Write-Host "!!  $msg" -ForegroundColor Yellow }
@@ -37,14 +36,14 @@ function Die([string]$msg) {
 function Get-LatestTag {
     try {
         $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" `
-            -Headers @{ "User-Agent" = "ytui-dl-install" }
+            -Headers @{ "User-Agent" = "ytd-install" }
         if ($rel.tag_name) { return [string]$rel.tag_name }
     } catch {
         Write-Warn "GitHub API failed: $($_.Exception.Message)"
     }
 
     if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
-        $final = & curl.exe -fsSLI -o NUL -w "%{url_effective}" -A "ytui-dl-install" `
+        $final = & curl.exe -fsSLI -o NUL -w "%{url_effective}" -A "ytd-install" `
             "https://github.com/$Repo/releases/latest" 2>$null
         if ($LASTEXITCODE -eq 0 -and $final) {
             return ($final.Trim() -split "/")[-1]
@@ -91,14 +90,14 @@ function Download-File([string]$Url, [string]$OutFile, [int]$MinBytes = 64) {
     if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
         Write-Info "using curl.exe"
         & curl.exe -fL --retry 4 --retry-all-errors --connect-timeout 15 --max-time 600 `
-            -A "ytui-dl-install" -o $OutFile $Url
+            -A "ytd-install" -o $OutFile $Url
         if ($LASTEXITCODE -ne 0) {
             throw "curl.exe failed with exit code $LASTEXITCODE"
         }
     } else {
         Write-Info "using System.Net.WebClient"
         $wc = New-Object System.Net.WebClient
-        $wc.Headers.Add("User-Agent", "ytui-dl-install")
+        $wc.Headers.Add("User-Agent", "ytd-install")
         try {
             $wc.DownloadFile($Url, $OutFile)
         } finally {
@@ -188,7 +187,7 @@ foreach ($arg in $args) {
         "^--skip-deps$" { $SkipDeps = $true }
         "^--help$|^-h$" {
             Write-Host @"
-ytd Windows installer (command: ytd, alias: ytui-dl)
+ytd Windows installer
 
   irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 
@@ -202,7 +201,7 @@ ytd Windows installer (command: ytd, alias: ytui-dl)
 try {
     if ($Uninstall) {
         $removed = $false
-        foreach ($p in @($InstallPath, $LegacyPath)) {
+        foreach ($p in @($InstallPath, $LegacyPath, (Join-Path $LegacyDir "ytd.exe"))) {
             if (Test-Path $p) {
                 Remove-Item -Force $p
                 Write-Info "removed $p"
@@ -223,7 +222,7 @@ try {
     Write-Info "latest release: $remote"
 
     $localVer = $null
-    foreach ($probe in @($InstallPath, $LegacyPath)) {
+    foreach ($probe in @($InstallPath, (Join-Path $LegacyDir "ytd.exe"), $LegacyPath)) {
         if (-not (Test-Path $probe)) { continue }
         try {
             $out = & $probe --version 2>$null
@@ -255,7 +254,7 @@ try {
     }
 
     $downloadUrl = "https://github.com/$Repo/releases/download/$tag/$Asset"
-    $tmp = Join-Path $env:TEMP "ytui-dl-install-$PID.exe"
+    $tmp = Join-Path $env:TEMP "ytd-install-$PID.exe"
     Write-Info "downloading $Asset"
     Write-Info $downloadUrl
     try {
@@ -267,7 +266,7 @@ try {
 
     $sumUrl = "$downloadUrl.sha256"
     try {
-        $sumTmp = Join-Path $env:TEMP "ytui-dl-install-$PID.sha256"
+        $sumTmp = Join-Path $env:TEMP "ytd-install-$PID.sha256"
         # checksum files are tiny (~100 bytes)
         Download-File -Url $sumUrl -OutFile $sumTmp -MinBytes 32
         $sumText = Get-Content -Raw $sumTmp
@@ -286,22 +285,29 @@ try {
         New-Item -ItemType Directory -Path $InstallDir | Out-Null
     }
 
-    foreach ($target in @($InstallPath, $LegacyPath)) {
-        $old = "$target.old"
-        if (Test-Path $target) {
-            try {
-                if (Test-Path $old) { Remove-Item -Force $old }
-                Rename-Item -Force $target $old
-            } catch {
-                Write-Warn "could not rename existing binary (close ytd if running): $($_.Exception.Message)"
-            }
-        }
-        Copy-Item -Force $tmp $target
-        if (Test-Path $old) {
-            Remove-Item -Force $old -ErrorAction SilentlyContinue
+    $old = "$InstallPath.old"
+    if (Test-Path $InstallPath) {
+        try {
+            if (Test-Path $old) { Remove-Item -Force $old }
+            Rename-Item -Force $InstallPath $old
+        } catch {
+            Write-Warn "could not rename existing binary (close ytd if running): $($_.Exception.Message)"
         }
     }
+    if (-not (Test-Path $InstallDir)) {
+        New-Item -ItemType Directory -Path $InstallDir | Out-Null
+    }
+    Copy-Item -Force $tmp $InstallPath
     Remove-Item -Force $tmp -ErrorAction SilentlyContinue
+    if (Test-Path $old) {
+        Remove-Item -Force $old -ErrorAction SilentlyContinue
+    }
+    # Drop old ytui-dl install if present
+    foreach ($p in @($LegacyPath, (Join-Path $LegacyDir "ytd.exe"))) {
+        if (Test-Path $p) {
+            try { Remove-Item -Force $p; Write-Info "removed old binary $p" } catch {}
+        }
+    }
 
     Ensure-UserPath $InstallDir
 
@@ -343,11 +349,10 @@ try {
     Write-Host "================================================" -ForegroundColor Green
     Write-Info "done!"
     Write-Host "  Command:    ytd" -ForegroundColor White
-    Write-Host "  Alias:      ytui-dl  (same app)" -ForegroundColor DarkGray
     Write-Host "  Full path:  & `"$InstallPath`"" -ForegroundColor White
     Write-Host "  Or reopen Windows Terminal and run:  ytd" -ForegroundColor White
     Write-Host "  If nothing appears:  ytd --doctor" -ForegroundColor Yellow
-    Write-Host "  Log file:  $env:LOCALAPPDATA\ytui-dl\last-run.log" -ForegroundColor DarkGray
+    Write-Host "  Log file:  $env:LOCALAPPDATA\ytd\last-run.log" -ForegroundColor DarkGray
     Write-Host "================================================" -ForegroundColor Green
     Write-Host ""
     # Try invoking immediately in this session

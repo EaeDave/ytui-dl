@@ -2,7 +2,7 @@
 
 **YouTube no terminal.** TUI em Rust para baixar vídeos e áudios do YouTube.
 
-**Comando:** `ytd` · *(alias legado: `ytui-dl`)* · O repositório/pacote continua **ytui-dl**.
+**Comando:** `ytd`
 
 Backend: **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** · Interface: **[Ratatui](https://ratatui.rs/)**
 
@@ -38,12 +38,12 @@ winget install yt-dlp.yt-dlp Gyan.FFmpeg
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
-# → ~/.local/bin/ytd  (+ alias ytui-dl)
+# → ~/.local/bin/ytd
 ```
 
 #### Windows (PowerShell)
 
-Instala em **`%LOCALAPPDATA%\ytui-dl\bin\ytd.exe`** (+ alias `ytui-dl.exe`), coloca no PATH e pode instalar **yt-dlp / ffmpeg** via winget (pergunta Y/n):
+Instala em **`%LOCALAPPDATA%\ytd\bin\ytd.exe`**, coloca no PATH e pode instalar **yt-dlp / ffmpeg** via winget (pergunta Y/n):
 
 ```powershell
 irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
@@ -52,7 +52,7 @@ irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 Depois **abra um novo Windows Terminal** (ou use o caminho completo):
 
 ```powershell
-& "$env:LOCALAPPDATA\ytui-dl\bin\ytd.exe"
+& "$env:LOCALAPPDATA\ytd\bin\ytd.exe"
 ```
 
 O instalador atualiza o PATH do usuário; terminais já abertos podem não achar `ytd` até reabrir.
@@ -65,14 +65,13 @@ Se `ytd --version` não imprime nada e `$LASTEXITCODE` é `-1073741515`, o Windo
 winget install -e --id Microsoft.VCRedist.2015+.x64
 ```
 
-Se continuar mudo: `ytd --doctor` e confira `%LOCALAPPDATA%\ytui-dl\last-run.log`.
+Se continuar mudo: `ytd --doctor` e confira `%LOCALAPPDATA%\ytd\last-run.log`.
 
 #### Depois de instalar
 
 ```bash
 ytd
 ytd --version
-# alias ainda funciona: ytui-dl --version
 ```
 
 #### Atualizar / desinstalar
@@ -110,7 +109,7 @@ Perfil WhatsApp exige **ffmpeg**.
 
 A UI começa em **inglês**. Troque para **Português (BR)** em **Configurações** (`s`) → Idioma (`←`/`→` ou `Enter`) e salve.
 
-Também em `~/.config/ytui-dl/config.toml`:
+Também em `~/.config/ytd/config.toml`:
 
 ```toml
 language = "pt-BR"    # ou "en"
@@ -137,10 +136,10 @@ Na abertura, o **ytd** consulta as GitHub Releases em background. Se houver vers
 
 ## Configuração
 
-Arquivo: `~/.config/ytui-dl/config.toml`
+Arquivo: `~/.config/ytd/config.toml`
 
 ```toml
-output_dir = "/home/voce/Downloads/ytui-dl"
+output_dir = "/home/voce/Downloads/ytd"
 output_template = "%(title)s [%(id)s].%(ext)s"
 default_mode = "video"
 default_profile = "whats_app"   # ou "best" / "whatsapp" (padrão: WhatsApp)
@@ -152,7 +151,7 @@ auto_open = true   # abre o arquivo no player do sistema ao terminar
 
 Com `auto_open` ligado (padrão), o vídeo/áudio concluído abre no app padrão do SO (`xdg-open` no Linux). Alternar em **Configurações** ou `auto_open = false` no config.
 
-Padrão de saída: `~/Downloads/ytui-dl/` (ou home se Downloads não existir).
+Padrão de saída: `~/Downloads/ytd/` (ou home se Downloads não existir).
 
 ## Releases
 

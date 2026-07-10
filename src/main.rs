@@ -31,7 +31,7 @@ fn print_version() {
 fn print_cli_help() {
     println!(
         "\
-ytd {VERSION} — YouTube TUI downloader (formerly ytui-dl)
+ytd {VERSION} — YouTube TUI downloader
 
 Usage:
   ytd              Start the TUI
@@ -43,16 +43,14 @@ Usage:
   ytd --uninstall  Remove the installed binary (keeps config/downloads)
   ytd --help       Print this help
 
-  Alias: ytui-dl  (same binary; still installed for compatibility)
-
 First-time install:
   Linux:   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
   Windows: irm https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.ps1 | iex
 
 If the TUI opens and closes with no message, run:
   ytd --doctor
-  type %LOCALAPPDATA%\\ytui-dl\\last-run.log     (Windows)
-  cat ~/.local/share/ytui-dl/last-run.log       (Linux)
+  type %LOCALAPPDATA%\\ytd\\last-run.log     (Windows)
+  cat ~/.local/share/ytd/last-run.log       (Linux)
 "
     );
 }

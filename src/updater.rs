@@ -16,9 +16,9 @@ use crate::action::Action;
 
 const REPO: &str = "EaeDave/ytui-dl";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const USER_AGENT: &str = "ytui-dl-update";
+const USER_AGENT: &str = "ytd-update";
 
-/// Primary command name (`ytd` / `ytd.exe`).
+/// Command name on the current OS (`ytd` / `ytd.exe`).
 pub fn binary_name() -> &'static str {
     if cfg!(windows) {
         "ytd.exe"
@@ -27,23 +27,9 @@ pub fn binary_name() -> &'static str {
     }
 }
 
-/// Legacy command kept as a compatibility alias (`ytui-dl` / `ytui-dl.exe`).
-pub fn legacy_binary_name() -> &'static str {
-    if cfg!(windows) {
-        "ytui-dl.exe"
-    } else {
-        "ytui-dl"
-    }
-}
-
 fn is_our_binary_filename(name: &str) -> bool {
     let name = name.replace(" (deleted)", "");
-    name == binary_name()
-        || name == legacy_binary_name()
-        || name == "ytd"
-        || name == "ytui-dl"
-        || name.starts_with("ytd.")
-        || name.starts_with("ytui-dl")
+    name == binary_name() || name == "ytd" || name.starts_with("ytd.")
 }
 
 /// Spawn a background task that reports a newer release tag, if any.
@@ -96,13 +82,12 @@ struct UpdateOutcome {
     install_path: Option<PathBuf>,
 }
 
-/// CLI entry: `ytd --update` (also works as `ytui-dl --update`).
+/// CLI entry: `ytd --update`.
 pub async fn run_self_update(force: bool) -> Result<()> {
     let outcome = run_self_update_inner(force, |msg| println!("==> {msg}")).await?;
     if outcome.installed {
         println!("==> updated to v{}", outcome.version);
         println!("==> run: {} --version", binary_name());
-        println!("==> (alias: {} still works if installed)", legacy_binary_name());
     }
     Ok(())
 }
@@ -146,7 +131,7 @@ async fn run_self_update_inner(
     let dest = install_destination()?;
 
     progress(format!("downloading {asset}"));
-    let tmp_dir = env::temp_dir().join(format!("ytui-dl-update-{}", std::process::id()));
+    let tmp_dir = env::temp_dir().join(format!("ytd-update-{}", std::process::id()));
     tokio::fs::create_dir_all(&tmp_dir)
         .await
         .wrap_err("create temp dir")?;
@@ -180,16 +165,8 @@ async fn run_self_update_inner(
     progress(format!("installing to {}", dest.display()));
     install_binary(&tmp_bin, &dest).await?;
 
-    // Keep legacy `ytui-dl` next to `ytd` so muscle memory / old docs still work.
-    if let Some(parent) = dest.parent() {
-        let legacy = parent.join(legacy_binary_name());
-        if legacy != dest {
-            progress(format!("also installing alias {}", legacy.display()));
-            if let Err(e) = install_binary(&tmp_bin, &legacy).await {
-                progress(format!("warn: could not install legacy alias: {e:#}"));
-            }
-        }
-    }
+    // Drop leftover ytui-dl binary from older installs (same bin dir or default layout).
+    cleanup_legacy_binaries(&dest);
 
     let _ = tokio::fs::remove_dir_all(&tmp_dir).await;
     Ok(UpdateOutcome {
@@ -271,7 +248,8 @@ async fn install_binary(src: &Path, dest: &Path) -> Result<()> {
 
 /// CLI entry: `ytd --uninstall`
 ///
-/// Removes installed binaries (`ytd` + legacy `ytui-dl`), not config or downloads.
+/// Removes the installed binary (not config or downloads). Also cleans leftover
+/// paths from the old `ytui-dl` name if present.
 pub fn run_uninstall() -> Result<()> {
     let mut removed = Vec::new();
     let mut errors = Vec::new();
@@ -297,15 +275,19 @@ pub fn run_uninstall() -> Result<()> {
     {
         let bin = default_user_bin();
         let _ = std::fs::remove_file(bin.join("ytd.exe.old"));
-        let _ = std::fs::remove_file(bin.join("ytui-dl.exe.old"));
+        // Old install layout
+        if let Some(local) = dirs::data_local_dir() {
+            let old_bin = local.join("ytui-dl").join("bin");
+            let _ = std::fs::remove_file(old_bin.join("ytui-dl.exe.old"));
+            let _ = std::fs::remove_file(old_bin.join("ytd.exe.old"));
+        }
     }
 
     if removed.is_empty() && errors.is_empty() {
         println!("==> ytd binary not found in common install locations");
         println!(
-            "    checked: {}, {}, current executable, PATH",
-            default_user_bin().join(binary_name()).display(),
-            default_user_bin().join(legacy_binary_name()).display()
+            "    checked: {}, current executable, PATH",
+            default_user_bin().join(binary_name()).display()
         );
         return Ok(());
     }
@@ -314,9 +296,9 @@ pub fn run_uninstall() -> Result<()> {
         println!("==> uninstalled binary ({} file(s))", removed.len());
         println!("==> config and downloads were not removed");
         #[cfg(windows)]
-        println!("    config: %LOCALAPPDATA%\\ytui-dl  (or %APPDATA%\\ytui-dl)");
+        println!("    config: %APPDATA%\\ytd");
         #[cfg(not(windows))]
-        println!("    config: ~/.config/ytui-dl");
+        println!("    config: ~/.config/ytd");
     }
 
     if !errors.is_empty() {
@@ -354,23 +336,74 @@ fn uninstall_candidates() -> Vec<PathBuf> {
         }
     }
 
-    for name in [binary_name(), legacy_binary_name()] {
-        let local = default_user_bin().join(name);
-        if !paths.iter().any(|p| p == &local) {
-            paths.push(local);
+    let local = default_user_bin().join(binary_name());
+    if !paths.iter().any(|p| p == &local) {
+        paths.push(local);
+    }
+
+    // One-time cleanup of the former command name / install layout.
+    for p in legacy_install_paths() {
+        if !paths.iter().any(|x| x == &p) {
+            paths.push(p);
         }
     }
 
-    for name in [binary_name(), legacy_binary_name(), "ytd", "ytui-dl"] {
-        if let Ok(from_path) = which::which(name) {
-            let from_path = from_path.canonicalize().unwrap_or(from_path);
-            if !path_in_target(&from_path) && !paths.iter().any(|p| p == &from_path) {
-                paths.push(from_path);
-            }
+    if let Ok(from_path) = which::which(binary_name()) {
+        let from_path = from_path.canonicalize().unwrap_or(from_path);
+        if !path_in_target(&from_path) && !paths.iter().any(|p| p == &from_path) {
+            paths.push(from_path);
+        }
+    }
+    // Also remove PATH hits for the old name
+    if let Ok(from_path) = which::which(if cfg!(windows) { "ytui-dl.exe" } else { "ytui-dl" }) {
+        let from_path = from_path.canonicalize().unwrap_or(from_path);
+        if !path_in_target(&from_path) && !paths.iter().any(|p| p == &from_path) {
+            paths.push(from_path);
         }
     }
 
     paths
+}
+
+fn legacy_install_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    #[cfg(windows)]
+    {
+        if let Some(local) = dirs::data_local_dir() {
+            let old = local.join("ytui-dl").join("bin");
+            paths.push(old.join("ytui-dl.exe"));
+            paths.push(old.join("ytd.exe"));
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        if let Some(home) = dirs::home_dir() {
+            paths.push(home.join(".local/bin/ytui-dl"));
+        }
+        paths.push(PathBuf::from("/usr/local/bin/ytui-dl"));
+    }
+    paths
+}
+
+/// Remove leftover binaries from the old `ytui-dl` name after installing `ytd`.
+fn cleanup_legacy_binaries(new_dest: &Path) {
+    for path in legacy_install_paths() {
+        if path == *new_dest {
+            continue;
+        }
+        if path.is_file() {
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+    // Same directory sibling named ytui-dl*
+    if let Some(parent) = new_dest.parent() {
+        for name in ["ytui-dl", "ytui-dl.exe"] {
+            let p = parent.join(name);
+            if p != *new_dest && p.is_file() {
+                let _ = std::fs::remove_file(p);
+            }
+        }
+    }
 }
 
 /// Re-exec / relaunch the updated binary.
@@ -415,36 +448,29 @@ pub fn resolve_restart_path() -> Result<PathBuf> {
         return Ok(local);
     }
 
-    let legacy_local = default_user_bin().join(legacy_binary_name());
-    if legacy_local.is_file() {
-        return Ok(legacy_local);
-    }
-
-    for name in [binary_name(), legacy_binary_name(), "ytd", "ytui-dl"] {
-        if let Ok(from_path) = which::which(name) {
-            if from_path.is_file() {
-                return Ok(from_path);
-            }
+    if let Ok(from_path) = which::which(binary_name()) {
+        if from_path.is_file() {
+            return Ok(from_path);
         }
     }
 
     if let Ok(exe) = env::current_exe() {
         let cleaned = strip_deleted_marker(exe);
         if cleaned.is_file() {
-            return Ok(cleaned);
-        }
-        if let Some(name) = cleaned.file_name().and_then(|n| n.to_str()) {
-            if is_our_binary_filename(name) {
-                if let Some(parent) = cleaned.parent() {
-                    let candidate = parent.join(binary_name());
-                    if candidate.is_file() {
-                        return Ok(candidate);
-                    }
-                    let legacy = parent.join(legacy_binary_name());
-                    if legacy.is_file() {
-                        return Ok(legacy);
-                    }
+            // Prefer the new name if we just installed next to an old process.
+            if let Some(parent) = cleaned.parent() {
+                let candidate = parent.join(binary_name());
+                if candidate.is_file() {
+                    return Ok(candidate);
                 }
+            }
+            if is_our_binary_filename(
+                cleaned
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(""),
+            ) {
+                return Ok(cleaned);
             }
         }
     }
@@ -452,7 +478,7 @@ pub fn resolve_restart_path() -> Result<PathBuf> {
     bail!("ytd binary not found for restart")
 }
 
-/// Where to write the binary during update (always the primary `ytd` name).
+/// Where to write the binary during update.
 fn install_destination() -> Result<PathBuf> {
     let local = default_user_bin().join(binary_name());
 
@@ -463,8 +489,7 @@ fn install_destination() -> Result<PathBuf> {
         } else {
             cleaned
         };
-        let in_target = path_in_target(&exe);
-        if in_target {
+        if path_in_target(&exe) {
             return Ok(local);
         }
 
@@ -474,11 +499,17 @@ fn install_destination() -> Result<PathBuf> {
             .unwrap_or("")
             .replace(" (deleted)", "");
 
+        // Already running as ytd → replace in place (same directory).
         if is_our_binary_filename(&name) {
             if let Some(parent) = exe.parent() {
                 return Ok(parent.join(binary_name()));
             }
             return Ok(ensure_exe_name(exe));
+        }
+
+        // Updating from the old `ytui-dl` binary → install into the new layout.
+        if name == "ytui-dl" || name == "ytui-dl.exe" || name.starts_with("ytui-dl") {
+            return Ok(local);
         }
     }
     Ok(local)
@@ -515,12 +546,12 @@ fn strip_deleted_marker(path: PathBuf) -> PathBuf {
 /// User-writable install directory for the binary.
 ///
 /// - Linux/macOS: `~/.local/bin`
-/// - Windows: `%LOCALAPPDATA%\ytui-dl\bin`
+/// - Windows: `%LOCALAPPDATA%\ytd\bin`
 pub fn default_user_bin() -> PathBuf {
     if cfg!(windows) {
         dirs::data_local_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("ytui-dl")
+            .join("ytd")
             .join("bin")
     } else {
         dirs::home_dir()
@@ -555,9 +586,9 @@ fn detect_target() -> Result<String> {
 
 fn release_asset_name(target: &str) -> String {
     if target.contains("windows") {
-        format!("ytui-dl-{target}.exe")
+        format!("ytd-{target}.exe")
     } else {
-        format!("ytui-dl-{target}")
+        format!("ytd-{target}")
     }
 }
 
@@ -705,11 +736,11 @@ mod tests {
     fn asset_names() {
         assert_eq!(
             release_asset_name("x86_64-unknown-linux-gnu"),
-            "ytui-dl-x86_64-unknown-linux-gnu"
+            "ytd-x86_64-unknown-linux-gnu"
         );
         assert_eq!(
             release_asset_name("x86_64-pc-windows-msvc"),
-            "ytui-dl-x86_64-pc-windows-msvc.exe"
+            "ytd-x86_64-pc-windows-msvc.exe"
         );
     }
 }

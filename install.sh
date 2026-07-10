@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # ytd installer — install / update / uninstall
-# (repo/package name remains ytui-dl; command is ytd, with ytui-dl as alias)
 #
 #   curl -fsSL https://raw.githubusercontent.com/EaeDave/ytui-dl/main/install.sh | bash
 #   curl -fsSL ... | bash -s -- --uninstall
@@ -9,7 +8,6 @@ set -euo pipefail
 
 readonly REPO="EaeDave/ytui-dl"
 readonly BIN_NAME="ytd"
-readonly LEGACY_NAME="ytui-dl"
 readonly GITHUB_API="https://api.github.com/repos/${REPO}"
 readonly GITHUB_RELEASES="https://github.com/${REPO}/releases"
 
@@ -32,15 +30,12 @@ ytd installer (YouTube TUI downloader)
 Usage:
   install.sh [options]
 
-Installs command:  ytd
-Also installs:     ytui-dl  (compatibility alias)
-
 Options:
   --prefix DIR    Install prefix (default: ~/.local → binary in DIR/bin)
   --bin-dir DIR   Exact directory for the binary (overrides --prefix)
   --system        Install to /usr/local/bin (may require sudo)
   --force         Reinstall even if the same version is already installed
-  --uninstall     Remove ytd and ytui-dl from the install location
+  --uninstall     Remove ytd from the install location
   --check         Show installed vs latest remote version
   --skip-deps     Do not offer to install yt-dlp / ffmpeg
   -h, --help      Show this help
@@ -104,84 +99,84 @@ resolve_bin_dir() {
 }
 
 installed_path() {
-  printf '%s/%s\n' "$(resolve_bin_dir)" "${BIN_NAME}"
+  printf '%s/%s\n' "$(resolve_bin_dir)" "$BIN_NAME"
 }
 
 installed_version() {
   local path
   path="$(installed_path)"
   if [[ -x "$path" ]]; then
-    "$path" --version 2>/dev/null | head -n1 | awk '{print $NF}' | sed 's/^v//' || true
-    return
+    "$path" --version 2>/dev/null | awk '{print $NF}'
+    return 0
   fi
   if command -v "$BIN_NAME" >/dev/null 2>&1; then
-    "$BIN_NAME" --version 2>/dev/null | head -n1 | awk '{print $NF}' | sed 's/^v//' || true
+    "$BIN_NAME" --version 2>/dev/null | awk '{print $NF}'
+    return 0
   fi
-}
-
-# Prints: TAG\tASSET_URL\tASSET_NAME
-fetch_latest_release() {
-  need_cmd curl
-  local tag asset_name asset_url target effective
-  target="$(detect_target)"
-  asset_name="${BIN_NAME}-${target}"
-
-  # Prefer redirect on /releases/latest (no API token / fewer rate limits)
-  effective="$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
-    -A "ytui-dl-install" \
-    "https://github.com/${REPO}/releases/latest")" \
-    || die "não foi possível resolver a latest release (veja ${GITHUB_RELEASES})"
-
-  tag="${effective##*/}"
-  [[ -n "$tag" && "$tag" != "latest" ]] \
-    || die "não foi possível determinar a tag da latest release"
-
-  asset_url="https://github.com/${REPO}/releases/download/${tag}/${asset_name}"
-
-  # Sanity: asset must exist (HEAD)
-  if ! curl -fsSLI -A "ytui-dl-install" "$asset_url" >/dev/null 2>&1; then
-    die "asset '${asset_name}' não encontrado na release ${tag}. Veja ${GITHUB_RELEASES}"
-  fi
-
-  printf '%s\t%s\t%s\n' "$tag" "$asset_url" "$asset_name"
+  return 1
 }
 
 ensure_dir() {
   local dir="$1"
-  [[ -d "$dir" ]] && return 0
-  info "criando ${dir}"
-  if mkdir -p "$dir" 2>/dev/null; then
-    return 0
-  fi
-  if command -v sudo >/dev/null 2>&1; then
-    sudo mkdir -p "$dir"
-  else
-    die "sem permissão para criar ${dir}"
+  if [[ ! -d "$dir" ]]; then
+    if [[ -w "$(dirname "$dir")" ]] || [[ "$dir" == "$HOME"* ]]; then
+      mkdir -p "$dir"
+    else
+      info "criando ${dir} com sudo…"
+      sudo mkdir -p "$dir"
+    fi
   fi
 }
 
 install_file() {
   local src="$1" dest="$2"
-  if install -m 755 "$src" "$dest" 2>/dev/null; then
-    return 0
-  fi
-  if command -v sudo >/dev/null 2>&1; then
-    sudo install -m 755 "$src" "$dest"
+  if [[ -w "$(dirname "$dest")" ]]; then
+    install -m 755 "$src" "$dest"
   else
-    die "sem permissão para instalar em ${dest}"
+    info "instalando em ${dest} com sudo…"
+    sudo install -m 755 "$src" "$dest"
   fi
 }
 
 remove_file() {
   local path="$1"
-  if rm -f "$path" 2>/dev/null; then
-    return 0
-  fi
-  if command -v sudo >/dev/null 2>&1; then
-    sudo rm -f "$path"
+  if [[ -w "$(dirname "$path")" ]]; then
+    rm -f "$path"
   else
-    die "sem permissão para remover ${path}"
+    sudo rm -f "$path"
   fi
+}
+
+fetch_latest_release() {
+  need_cmd curl
+  local target tag asset_name asset_url api_json
+
+  target="$(detect_target)"
+  # Prefer new asset name; fall back to old ytui-dl-* for one transition if needed.
+  asset_name="ytd-${target}"
+
+  if api_json="$(curl -fsSL -A "ytd-install" \
+      -H "Accept: application/vnd.github+json" \
+      "${GITHUB_API}/releases/latest" 2>/dev/null)"; then
+    tag="$(printf '%s' "$api_json" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+  fi
+
+  if [[ -z "${tag:-}" ]]; then
+    local final
+    final="$(curl -fsSLI -o /dev/null -w '%{url_effective}' -A "ytd-install" \
+      "${GITHUB_RELEASES}/latest" 2>/dev/null || true)"
+    tag="${final##*/}"
+  fi
+  [[ -n "${tag:-}" && "$tag" != "latest" ]] || die "não foi possível resolver a release mais recente"
+
+  asset_url="${GITHUB_RELEASES}/download/${tag}/${asset_name}"
+  if ! curl -fsSLI -A "ytd-install" "$asset_url" >/dev/null 2>&1; then
+    # Transition: older tags used ytui-dl-* asset names
+    asset_name="ytui-dl-${target}"
+    asset_url="${GITHUB_RELEASES}/download/${tag}/${asset_name}"
+  fi
+
+  printf '%s\t%s\t%s\n' "$tag" "$asset_url" "$asset_name"
 }
 
 check_path() {
@@ -199,11 +194,13 @@ check_path() {
 }
 
 do_uninstall() {
-  local path legacy removed=0
+  local path removed=0
   path="$(installed_path)"
-  legacy="$(dirname "$path")/${LEGACY_NAME}"
 
-  for candidate in "$path" "$legacy"; do
+  for candidate in "$path" \
+      "$(dirname "$path")/ytui-dl" \
+      "${HOME}/.local/bin/ytui-dl" \
+      "/usr/local/bin/ytui-dl"; do
     if [[ -e "$candidate" ]]; then
       info "removendo ${candidate}"
       remove_file "$candidate"
@@ -211,24 +208,21 @@ do_uninstall() {
     fi
   done
 
-  # Also drop PATH hits if they differ from install dir
-  for name in "$BIN_NAME" "$LEGACY_NAME"; do
-    if command -v "$name" >/dev/null 2>&1; then
-      local p
-      p="$(command -v "$name")"
-      if [[ -e "$p" ]]; then
-        info "removendo ${p}"
-        remove_file "$p" || true
-        removed=1
-      fi
+  if command -v "$BIN_NAME" >/dev/null 2>&1; then
+    local p
+    p="$(command -v "$BIN_NAME")"
+    if [[ -e "$p" ]]; then
+      info "removendo ${p}"
+      remove_file "$p" || true
+      removed=1
     fi
-  done
+  fi
 
   if [[ "$removed" -eq 0 ]]; then
     die "${BIN_NAME} não está instalado em $(installed_path)"
   fi
   info "desinstalado."
-  info "config (~/.config/ytui-dl) e downloads não foram removidos."
+  info "config (~/.config/ytd) e downloads não foram removidos."
 }
 
 do_check() {
@@ -296,7 +290,6 @@ do_install() {
   curl -fsSL "$asset_url" -o "$bin_tmp"
   chmod +x "$bin_tmp"
 
-  # Optional checksum (uploaded as asset.sha256)
   local sum_url sum_file expected actual
   sum_url="${asset_url}.sha256"
   sum_file="${bin_tmp}.sha256"
@@ -310,16 +303,21 @@ do_install() {
 
   ensure_dir "$(dirname "$dest")"
   install_file "$bin_tmp" "$dest"
-  # Compatibility alias so `ytui-dl` still works
-  local legacy_dest
-  legacy_dest="$(dirname "$dest")/${LEGACY_NAME}"
-  install_file "$bin_tmp" "$legacy_dest"
+
+  # Remove old command name if present
+  local old
+  for old in "$(dirname "$dest")/ytui-dl" "${HOME}/.local/bin/ytui-dl"; do
+    if [[ -e "$old" && "$old" != "$dest" ]]; then
+      info "removendo binário antigo: ${old}"
+      remove_file "$old" || true
+    fi
+  done
+
   check_path
 
   local final_ver
   final_ver="$("$dest" --version 2>/dev/null | awk '{print $NF}' || echo "$remote_ver")"
   info "pronto: ${dest} (${final_ver})"
-  info "alias:  ${legacy_dest}"
   info "rode:   ytd"
 
   if [[ "$SKIP_DEPS" -eq 0 ]]; then
@@ -345,7 +343,6 @@ ensure_runtime_deps() {
   if [[ "$need_ff" -eq 1 ]]; then echo "  - ffmpeg  (recommended)"; else echo "  - ffmpeg  (found)"; fi
   echo
 
-  # Non-interactive (piped curl | bash): skip prompts
   if [[ ! -t 0 ]]; then
     warn "non-interactive shell — install deps yourself:"
     warn "  sudo pacman -S yt-dlp ffmpeg   # or apt / brew"
@@ -390,33 +387,13 @@ while [[ $# -gt 0 ]]; do
       BIN_DIR="${2:?}"
       shift 2
       ;;
-    --system)
-      SYSTEM=1
-      shift
-      ;;
-    --force)
-      FORCE=1
-      shift
-      ;;
-    --uninstall)
-      UNINSTALL=1
-      shift
-      ;;
-    --check)
-      CHECK_ONLY=1
-      shift
-      ;;
-    --skip-deps)
-      SKIP_DEPS=1
-      shift
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      die "opção desconhecida: $1 (use --help)"
-      ;;
+    --system) SYSTEM=1; shift ;;
+    --force|-f) FORCE=1; shift ;;
+    --uninstall) UNINSTALL=1; shift ;;
+    --check) CHECK_ONLY=1; shift ;;
+    --skip-deps) SKIP_DEPS=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "opção desconhecida: $1 (use --help)" ;;
   esac
 done
 
