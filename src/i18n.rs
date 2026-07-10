@@ -271,8 +271,8 @@ pub static EN: Strings = Strings {
     settings_tip_template: "• Template uses yt-dlp placeholders: %(title)s %(id)s %(ext)s …",
     settings_tip_defaults: "• Current mode/profile/quality defaults are also saved on Enter",
     settings_tip_file: "• File: ~/.config/ytui-dl/config.toml",
-    settings_tip_language: "• Language applies immediately and is saved with the rest",
-    settings_tip_auto_open: "• Auto-open uses the system player (xdg-open / open / explorer)",
+    settings_tip_language: "• Language is saved immediately (survives restart and updates)",
+    settings_tip_auto_open: "• Auto-open is saved immediately; uses the system player",
     settings_keys: "Enter = save   Esc = cancel   Tab = field   ←/→ = toggle",
 
     help_title: "Help",
@@ -414,8 +414,8 @@ pub static PT_BR: Strings = Strings {
     settings_tip_template: "• Template usa placeholders do yt-dlp: %(title)s %(id)s %(ext)s …",
     settings_tip_defaults: "• Os defaults de modo/perfil/qualidade atuais também são salvos ao pressionar Enter",
     settings_tip_file: "• Arquivo: ~/.config/ytui-dl/config.toml",
-    settings_tip_language: "• O idioma aplica na hora e é salvo junto com o resto",
-    settings_tip_auto_open: "• Auto-open usa o player do sistema (xdg-open / open / explorer)",
+    settings_tip_language: "• O idioma é salvo na hora (permanece após reiniciar e atualizar)",
+    settings_tip_auto_open: "• Auto-open é salvo na hora; usa o player do sistema",
     settings_keys: "Enter = salvar   Esc = cancelar   Tab = campo   ←/→ = alternar",
 
     help_title: "Ajuda",

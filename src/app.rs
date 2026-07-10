@@ -659,23 +659,18 @@ impl App {
             }
             KeyCode::Enter => {
                 if self.focus == Focus::SettingsLanguage {
-                    self.config.language = self.config.language.next();
-                    self.status_message = format!(
-                        "{}: {}",
-                        self.t().settings_language,
-                        self.config.language.native_label()
-                    );
+                    self.toggle_language();
                 } else if self.focus == Focus::SettingsAutoOpen {
-                    self.config.auto_open = !self.config.auto_open;
+                    self.toggle_auto_open();
                 } else {
                     self.apply_and_save_settings();
                 }
             }
             KeyCode::Left | KeyCode::Right if self.focus == Focus::SettingsLanguage => {
-                self.config.language = self.config.language.next();
+                self.toggle_language();
             }
             KeyCode::Left | KeyCode::Right if self.focus == Focus::SettingsAutoOpen => {
-                self.config.auto_open = !self.config.auto_open;
+                self.toggle_auto_open();
             }
             _ => {
                 if matches!(
@@ -710,6 +705,41 @@ impl App {
         self.focus = Focus::SettingsOutput;
     }
 
+    /// Toggle UI language and write it to disk immediately (user preference).
+    fn toggle_language(&mut self) {
+        self.config.language = self.config.language.next();
+        let label = format!(
+            "{}: {}",
+            self.t().settings_language,
+            self.config.language.native_label()
+        );
+        self.persist_preference(label);
+    }
+
+    /// Toggle auto-open and write it to disk immediately (user preference).
+    fn toggle_auto_open(&mut self) {
+        self.config.auto_open = !self.config.auto_open;
+        let label = format!(
+            "{}: {}",
+            self.t().settings_auto_open,
+            if self.config.auto_open {
+                self.t().settings_on
+            } else {
+                self.t().settings_off
+            }
+        );
+        self.persist_preference(label);
+    }
+
+    fn persist_preference(&mut self, ok_message: String) {
+        match self.config.save() {
+            Ok(()) => self.status_message = ok_message,
+            Err(e) => {
+                self.status_message = self.lang().msg_save_error(&e.to_string());
+            }
+        }
+    }
+
     fn apply_and_save_settings(&mut self) {
         let out = self.settings_output_input.value().trim();
         let tmpl = self.settings_template_input.value().trim();
@@ -727,7 +757,7 @@ impl App {
         self.config.default_profile = self.profile;
         self.config.default_quality = self.quality;
         self.config.default_audio_format = self.audio_format;
-        // language + auto_open already live on config
+        // language + auto_open already live on config (and auto-persist when toggled)
         match self.config.save() {
             Ok(()) => {
                 self.status_message = self.t().status_settings_saved.into();
