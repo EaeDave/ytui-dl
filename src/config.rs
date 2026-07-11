@@ -50,7 +50,12 @@ impl Default for Config {
 impl Config {
     pub fn load() -> Self {
         match load_from_disk() {
-            Ok(cfg) => cfg,
+            Ok(cfg) => {
+                let cfg = migrate_legacy_paths(cfg);
+                // Always rewrite to the current config location so renames stick.
+                let _ = cfg.save();
+                cfg
+            }
             Err(_) => {
                 let cfg = Self::default();
                 let _ = cfg.save();
@@ -76,6 +81,20 @@ fn default_output_dir() -> PathBuf {
         .or_else(dirs::home_dir)
         .unwrap_or_else(|| PathBuf::from("."))
         .join(APP_DIR)
+}
+
+/// If the last path component is the old app name, rename it to `ytd`.
+/// e.g. `~/Downloads/ytui-dl` → `~/Downloads/ytd`
+fn migrate_legacy_output_dir(path: PathBuf) -> PathBuf {
+    match path.file_name().and_then(|n| n.to_str()) {
+        Some(name) if name == LEGACY_APP_DIR => path.with_file_name(APP_DIR),
+        _ => path,
+    }
+}
+
+fn migrate_legacy_paths(mut cfg: Config) -> Config {
+    cfg.output_dir = migrate_legacy_output_dir(cfg.output_dir);
+    cfg
 }
 
 fn config_dir() -> Result<PathBuf> {
@@ -106,10 +125,29 @@ fn load_from_disk() -> Result<Config> {
             let content = fs::read_to_string(&legacy)?;
             let cfg: Config =
                 toml::from_str(&content).map_err(|e| AppError::Config(e.to_string()))?;
-            let _ = cfg.save();
             return Ok(cfg);
         }
     }
 
     Err(AppError::Config("config not found".into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn renames_legacy_download_folder() {
+        let p = PathBuf::from("/home/u/Downloads/ytui-dl");
+        assert_eq!(
+            migrate_legacy_output_dir(p),
+            PathBuf::from("/home/u/Downloads/ytd")
+        );
+    }
+
+    #[test]
+    fn leaves_custom_download_folder() {
+        let p = PathBuf::from("/home/u/Videos/clips");
+        assert_eq!(migrate_legacy_output_dir(p.clone()), p);
+    }
 }
